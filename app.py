@@ -507,8 +507,11 @@ def api_import_responses():
     try:
         content = file.read().decode("utf-8")
         records = json.loads(content)
-        count = import_responses(records)
-        return jsonify({"success": True, "message": f"Đã import {count} mẫu phản hồi"})
+        imported, skipped = import_responses(records)
+        return jsonify({
+            "success": True,
+            "message": f"Đã import {imported} mẫu phản hồi, bỏ qua {skipped} mẫu trùng"
+        })
     except Exception as e:
         return jsonify({"success": False, "error": f"Lỗi đọc file: {str(e)}"}), 400
 

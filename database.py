@@ -435,7 +435,7 @@ def delete_history_by_tickets(ticket_names):
 # ============================================================
 
 def init_responses_db():
-    """Tạo bảng response_templates nếu chưa có. Seed dữ liệu mẫu nếu bảng trống."""
+    """Tạo bảng response_templates nếu chưa có. Không tự thêm data mẫu."""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
@@ -453,43 +453,7 @@ def init_responses_db():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_responses_flow ON response_templates(flow)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_responses_tags ON response_templates(tags)')
     conn.commit()
-
-    # Seed dữ liệu mẫu nếu bảng trống
-    cursor.execute('SELECT COUNT(*) FROM response_templates')
-    if cursor.fetchone()[0] == 0:
-        _seed_default_responses(cursor)
-        conn.commit()
-
     conn.close()
-
-
-def _seed_default_responses(cursor):
-    """Thêm các mẫu phản hồi mặc định."""
-    from datetime import datetime
-    now = datetime.now().strftime('%d/%m/%Y %H:%M')
-    defaults = [
-        ("Báo khách hàng check lại", "FEOL", "Dear Team ITSD,\n\nNhờ Team báo khách hàng check lại giúp em.\n\nThanks Team.", "check,retry"),
-        ("KYC hết hạn - Yêu cầu update KYC", "FEOL", "Dear Team ITSD,\n\nNhờ Team báo khách hàng update KYC rồi check lại giúp em - Kyc khách hàng hết hạn.\n\nThanks Team.", "kyc"),
-        ("KYC hết hạn - Quét NFC lại", "FEOL", "Dear Team ITSD,\n\nNhờ Team báo khách hàng update KYC rồi quét NFC lại giúp em\n\nThanks Team.", "kyc,nfc"),
-        ("Quên tên đăng nhập + mật khẩu", "FEOL", "Dear Team ITSD,\n\nNhờ Team báo khách hàng thực hiện cả 2 tính năng quên tên đăng nhập và quên mật khẩu củng lúc. Sau đó cho em xin video thao tác nếu có lỗi\n\nThanks Team.", "login,password"),
-        ("NID đăng ký với Phone 3 số đuôi", "FEOL", "Dear Team ITSD,\n\nFEOL kiểm tra NID khách hàng đang đăng ký với Phone có 3 sô đuôi là: \n\nThanks Team!", "nid,phone"),
-        ("Xác minh danh tính thất bại - Điểm thấp", "FEOL", "Dear Team ITSD,\n\nTrường Hợp khách hàng xác minh danh tính thất bại. Do điểm xác minh danh tính khách hàng thấp. Trường hợp cần lấy Logs vui lòng cho em xin ngày thực hiên.\n\nThanks Team!", "ekyc,logs"),
-        ("App loading lâu - Chờ chọn tài khoản", "FEOL", "Dear Team ITSD,\n\nNhờ team báo khách hàng thử lại giúp em. Hiện tại App FEOL đang loading lâu. khách hàng vui lòng đợi và chọn số tài khoản giúp em.\n\nThanks Team!", "loading,retry"),
-        ("Quên TĐN + MK rồi login lại", "FEOL", "Dear Team ITSD,\n\nNhờ anh báo khách hàng thực hiện cả 2 tính năng quên tên đăng nhập và quên mật khẩu cùng 1 lúc. Sau đó thử login lại giúp em.\n\nThanks Team.", "login,password"),
-        ("SĐT không khớp - Cancel hồ sơ", "FEOL", "Dear Team ITSD,\n\nSố điện thoại lên hồ sơ không khớp với FEOL. Vui lòng cancel lên lại / Sau 15 ngày SLA sẽ tự động cancel.\n\nThanks Team.", "phone,cancel"),
-        ("Yêu cầu cung cấp thông tin lấy Logs", "FEOL", "Dear Anh/Chị,\n\nĐể hỗ trợ lấy logs chính xác và kiểm tra cho khách hàng, vui lòng cung cấp thông tin cho FEOL sau:\n1 Thời gian xảy ra lỗi\n2 Màn hình/flow mà người dùng đang thao tác khi gặp lỗi (hoặc các bước để tái hiện nếu có).\n3 Screenshot hoặc video của lỗi.\n\nLý do: FEOL là ứng dụng facing người dùng nên từ phía hệ thống không thể xác định chính xác màn hình hoặc luồng thao tác mà người dùng đang thực hiện. Nếu chỉ cung cấp khoảng thời gian quá dài, việc quét toàn bộ logs sẽ phát sinh chi phí xử lý lớn và khó đảm bảo lấy đúng bản ghi liên quan. Việc cung cấp thời gian và màn hình xảy ra lỗi sẽ giúp team xác định đúng logs cần kiểm tra và rút ngắn thời gian điều tra.\n\nCảm ơn Anh/Chị!", "logs,info"),
-        ("UBank - CIF Number existed in OCB", "UBank", "Dear anh/chị,\n\nOwner: VPBank\nIssue: Khách hàng thực hiện ký eSign TopUp, hệ thống báo lỗi UBank.\nRoot Cause: VPBank trả về mã lỗi \"CIF Number existed in OCB\".\nStatus: Null\n\nHiện tại, đối với các trường hợp thông tin giữa T24 và OCB profile không trùng khớp, khách hàng tạm thời chưa thể thực hiện giải ngân qua UBank.\n\nTeam đang phối hợp các bên liên quan để xây dựng quy trình xử lý ngoại lệ cho các trường hợp này. Sau khi có hướng dẫn chính thức, các case cần hỗ trợ tiếp tục vui lòng gửi request lại để team kiểm tra và hỗ trợ xử lý.\n\nTrong thời gian chờ cập nhật quy trình mới, IT xin phép tạm thời đóng ticket hiện tại cho đến khi có thông báo tiếp theo.\n\nCảm ơn anh/chị.", "esign,cif,topup"),
-        ("UBank - FAIL_OCB_DIFFERENCE_PID_OR_PHONE", "UBank", "Dear anh/chị,\n\nOwner: VPBank\nIssue: Khách hàng thực hiện ký eSign TopUp, hệ thống báo lỗi UBank.\nRoot Cause: VPBank trả về mã lỗi \"FAIL_OCB_DIFFERENCE_PID_OR_PHONE\".\nStatus: Null\n\nHiện tại, đối với các trường hợp thông tin giữa T24 và OCB profile không trùng khớp, khách hàng tạm thời chưa thể thực hiện giải ngân qua UBank.\n\nTeam đang phối hợp các bên liên quan để xây dựng quy trình xử lý ngoại lệ cho các trường hợp này. Sau khi có hướng dẫn chính thức, các case cần hỗ trợ tiếp tục vui lòng gửi request lại để team kiểm tra và hỗ trợ xử lý.\n\nTrong thời gian chờ cập nhật quy trình mới, IT xin phép tạm thời đóng ticket hiện tại cho đến khi có thông báo tiếp theo.\n\nCảm ơn anh/chị.", "esign,pid,phone,topup"),
-        ("UBank - Trạng thái INITIAL (eSign/Đăng ký TK)", "UBank", "Dear anh/chị,\n\nIssue: Khách hàng thực hiện ký esign \"báo có lỗi xãy ra\"./ Đăng ký tài khoản ubank\nRoot Cause: VPBank trả về trạng thái tài khoản khách hàng là \"INITIAL\", dẫn đến hệ thống không thể thực hiện xác thực thông tin tài khoản UBank. Nguyên nhân được xác định là do dữ liệu khách hàng giữa hệ thống T24 và OCB Profile chưa đồng bộ hoặc không khớp nhau.\n\nAction Required:\nNhờ CS hỗ trợ kiểm tra trạng thái tài khoản UBank của khách hàng trên hệ thống T24.\nTrường hợp tài khoản vẫn ở trạng thái Active trên T24, vui lòng hướng dẫn khách hàng đến quầy giao dịch VPBank để kiểm tra và cập nhật lại thông tin tài khoản (NID, SĐT, MAIL).\nTrường hợp tài khoản vẫn ở trạng thái Inactive trên T24 hiện tại chưa thể hỗ trợ được. Vui lòng check thêm thông tin với CS. FEOL sẽ hỗ trợ cung cấp thông tin tài khoản Ubank của khách hàng nếu cs cần kiểm tra.\n\nCảm ơn anh/chị.", "esign,initial,t24"),
-        ("UBank - Trạng thái Fail (eSign/Đăng ký TK)", "UBank", "Dear anh/chị,\n\nIssue: Khách hàng thực hiện ký esign \"báo có lỗi xãy ra\"./ Đăng ký tài khoản ubank\nRoot Cause: VPBank trả về trạng thái tài khoản khách hàng là \"Fail\", dẫn đến hệ thống không thể thực hiện xác thực thông tin tài khoản UBank. Nguyên nhân được xác định là do dữ liệu khách hàng giữa hệ thống T24 và OCB Profile chưa đồng bộ hoặc không khớp nhau.\n\nAction Required:\nNhờ CS hỗ trợ kiểm tra trạng thái tài khoản UBank của khách hàng trên hệ thống T24.\nTrường hợp tài khoản vẫn ở trạng thái Active trên T24, vui lòng hướng dẫn khách hàng đến quầy giao dịch VPBank để kiểm tra và cập nhật lại thông tin tài khoản (NID, SĐT, MAIL).\nTrường hợp tài khoản vẫn ở trạng thái Inactive trên T24 hiện tại chưa thể hỗ trợ được. Vui lòng check thêm thông tin với CS. FEOL sẽ hỗ trợ cung cấp thông tin tài khoản Ubank của khách hàng nếu cs cần kiểm tra.\n\nCảm ơn anh/chị.", "esign,fail,t24"),
-        ("UBank - Phone number already exists", "UBank", "Dear anh/chị,\n\nDear team,\nOwner: VPBank\nIssue: Khách hàng mở TK Ubank\nRoot Cause: VPBank trả về mã lỗi \"Phone number already exists.\".\nStatus: Null\nAction: Hướng dẫn khách hàng ra quầy VPBank để kiểm tra thông tin.\nETA: Null\n\nBest Regards", "phone,ubank,register"),
-        ("UBank - Email format is invalid", "UBank", "Dear anh/chị,\n\nOwner: Vpbank\nIssue: Lỗi không ký được esign \nRoot cause: Vpbank báo lỗi Email format is invalid\nStatus: null\nAction: Nhờ khách hàng ra quầy Vpbank kiểm tra lại email ở feol và Vpbank. Định dạng mail phải là @gmail.com\nETA: null\n\nBest Regards", "esign,email"),
-    ]
-    for title, flow, content, tags in defaults:
-        cursor.execute('''
-            INSERT INTO response_templates (title, flow, content, tags, copy_count, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 0, ?, ?)
-        ''', (title, flow, content, tags, now, now))
 
 
 def get_all_responses(flow='', search=''):
@@ -640,21 +604,37 @@ def export_all_responses():
 
 def import_responses(records):
     """
-    Import mẫu phản hồi từ file backup.
+    Import mẫu phản hồi từ file backup hoặc CSV.
+    Kiểm tra trùng: nếu title HOẶC content đã tồn tại → bỏ qua.
     records: list of dict có keys: title, flow, content, tags
-    Trả về: số records đã import
+    Trả về: (imported_count, skipped_count)
     """
     from datetime import datetime
     now = datetime.now().strftime('%d/%m/%Y %H:%M')
     conn = get_db()
     cursor = conn.cursor()
-    count = 0
+    imported = 0
+    skipped = 0
     for r in records:
+        title = r.get('title', '').strip()
+        content = r.get('content', '').strip()
+        if not title or not content:
+            skipped += 1
+            continue
+        # Kiểm tra trùng title hoặc content
+        cursor.execute('''
+            SELECT COUNT(*) FROM response_templates
+            WHERE title = ? OR content = ?
+        ''', (title, content))
+        if cursor.fetchone()[0] > 0:
+            skipped += 1
+            continue
+        # Không trùng → insert
         cursor.execute('''
             INSERT INTO response_templates (title, flow, content, tags, copy_count, created_at, updated_at)
             VALUES (?, ?, ?, ?, 0, ?, ?)
-        ''', (r.get('title', ''), r.get('flow', ''), r.get('content', ''), r.get('tags', ''), now, now))
-        count += 1
+        ''', (title, r.get('flow', ''), content, r.get('tags', ''), now, now))
+        imported += 1
     conn.commit()
     conn.close()
-    return count
+    return imported, skipped
