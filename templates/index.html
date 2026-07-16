@@ -1,0 +1,274 @@
+<!-- ============================================================
+     TRANG CHÍNH: XỬ LÝ UPDATE PHONE
+     Gom 2 tính năng:
+       Tab 1 - PROCESS: Merge file D2C + Result mới
+       Tab 2 - UPDATE: Cập nhật lại kết quả khi dev trả sai
+     ============================================================ -->
+{% extends "base.html" %}
+
+{% block header_icon %}phone{% endblock %}
+{% block header_title %}Xử lý Update Phone{% endblock %}
+
+{% block content %}
+<!-- ===== TABS: Chuyển giữa Process và Update ===== -->
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab"
+                data-bs-target="#tabProcess" type="button">
+            <i class="bi bi-play-fill me-1"></i>Process mới
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab"
+                data-bs-target="#tabUpdate" type="button">
+            <i class="bi bi-arrow-repeat me-1"></i>Update kết quả
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+<!-- ===== TAB 1: PROCESS MỚI ===== -->
+<div class="tab-pane fade show active" id="tabProcess">
+<div class="row">
+    <!-- CỘT TRÁI - Cấu hình -->
+    <div class="col-lg-5">
+        <div class="card card-custom">
+            <div class="card-header">
+                <i class="bi bi-files me-2"></i>Cấu hình Process
+            </div>
+            <div class="card-body">
+                <!-- Chọn số lượng cặp file -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Số lượng cặp file</label>
+                    <select class="form-select" id="fileCount">
+                        <option value="0">-- Chọn số lượng --</option>
+                        <option value="1">1 File</option>
+                        <option value="2">2 Files</option>
+                        <option value="3">3 Files</option>
+                        <option value="4">4 Files</option>
+                        <option value="5">5 Files</option>
+                        <option value="6">6 Files</option>
+                        <option value="7">7 Files</option>
+                        <option value="8">8 Files</option>
+                        <option value="9">9 Files</option>
+                        <option value="10">10 Files</option>
+                        <option value="15">15 Files</option>
+                        <option value="20">20 Files</option>
+                    </select>
+                </div>
+
+                <!-- Password ZIP -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-lock me-1"></i>Password ZIP
+                    </label>
+                    <input type="text" class="form-control" id="password"
+                           placeholder="Để trống = không đặt password">
+                    <small class="text-muted">
+                        Nếu nhập password → tất cả ZIP mã hóa AES-256
+                    </small>
+                </div>
+
+                <!-- Nút Process -->
+                <button class="btn btn-process w-100" id="processBtn">
+                    <i class="bi bi-play-fill me-2"></i>PROCESS
+                </button>
+            </div>
+        </div>
+
+        <!-- Thanh tiến trình -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress">
+                <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated"
+                     id="progressBar" style="width: 0%">0%</div>
+            </div>
+        </div>
+
+        <!-- Tóm tắt kết quả -->
+        <div class="summary-box" id="summaryContainer" style="display:none">
+            <div class="row text-center">
+                <div class="col">
+                    <div class="summary-value" id="summaryTotal">0</div>
+                    <div class="summary-label">Total</div>
+                </div>
+                <div class="col">
+                    <div class="summary-value text-success" id="summarySuccess">0</div>
+                    <div class="summary-label">Success</div>
+                </div>
+                <div class="col">
+                    <div class="summary-value text-danger" id="summaryFail">0</div>
+                    <div class="summary-label">Fail</div>
+                </div>
+                <div class="col">
+                    <div class="summary-value" id="summaryTime">0s</div>
+                    <div class="summary-label">Time</div>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <small>
+                    <i class="bi bi-lock-fill me-1"></i>Password:
+                    <span id="summaryPassword">Không</span>
+                </small>
+            </div>
+        </div>
+
+        <!-- Nút Download All -->
+        <div class="text-center mt-3" id="downloadAllContainer" style="display:none">
+            <a href="/api/download-all" class="btn btn-download-all">
+                <i class="bi bi-cloud-download me-2"></i>Download All ZIP
+            </a>
+        </div>
+    </div>
+
+    <!-- CỘT PHẢI - Upload files + Kết quả -->
+    <div class="col-lg-7">
+        <!-- Khu vực upload file -->
+        <div class="card card-custom">
+            <div class="card-header">
+                <i class="bi bi-upload me-2"></i>Upload Files
+            </div>
+            <div class="card-body" id="filePairs">
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-arrow-left-circle" style="font-size:2rem"></i>
+                    <p class="mt-2">Chọn số lượng file ở bên trái để bắt đầu</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cảnh báo NID trùng -->
+        <div id="warningsContainer"></div>
+
+        <!-- Kết quả từng file -->
+        <div class="card card-custom" id="resultsContainer" style="display:none">
+            <div class="card-header">
+                <i class="bi bi-check2-all me-2"></i>Kết quả
+            </div>
+            <div class="card-body" id="resultsBody"></div>
+        </div>
+    </div>
+</div>
+</div>
+<!-- ===== HẾT TAB 1 ===== -->
+
+<!-- ===== TAB 2: UPDATE KẾT QUẢ ===== -->
+<div class="tab-pane fade" id="tabUpdate">
+<div class="row">
+    <!-- CỘT TRÁI - Cấu hình update -->
+    <div class="col-lg-5">
+        <div class="card card-custom">
+            <div class="card-header">
+                <i class="bi bi-arrow-repeat me-2"></i>Cập nhật kết quả
+            </div>
+            <div class="card-body">
+                <!-- Hướng dẫn -->
+                <div class="alert alert-info small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Khi dev trả kết quả sai, chọn ticket + upload file Result mới.
+                    Update bao nhiêu lần cũng được.
+                </div>
+
+                <!-- Số lượng ticket cần update -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        Số lượng ticket cần update
+                    </label>
+                    <select class="form-select" id="updateCount">
+                        <option value="0">-- Chọn số lượng --</option>
+                        <option value="1">1 Ticket</option>
+                        <option value="2">2 Tickets</option>
+                        <option value="3">3 Tickets</option>
+                        <option value="4">4 Tickets</option>
+                        <option value="5">5 Tickets</option>
+                        <option value="6">6 Tickets</option>
+                        <option value="7">7 Tickets</option>
+                        <option value="8">8 Tickets</option>
+                        <option value="9">9 Tickets</option>
+                        <option value="10">10 Tickets</option>
+                    </select>
+                </div>
+
+                <!-- Danh sách ticket + file Result -->
+                <div id="updatePairs"></div>
+
+                <!-- Password ZIP -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-lock me-1"></i>Password ZIP
+                    </label>
+                    <input type="text" class="form-control" id="updatePassword"
+                           placeholder="Để trống = không đặt password">
+                </div>
+
+                <!-- Nút Update -->
+                <button class="btn btn-process w-100" id="updateBtn" disabled>
+                    <i class="bi bi-arrow-repeat me-2"></i>CẬP NHẬT
+                </button>
+
+                <!-- Kết quả update -->
+                <div class="mt-3" id="updateResults" style="display:none">
+                    <div id="updateResultsBody"></div>
+                </div>
+
+                <!-- Tóm tắt update -->
+                <div class="summary-box mt-3" id="updateSummary" style="display:none">
+                    <div class="row text-center">
+                        <div class="col">
+                            <div class="summary-value text-success" id="sumUpdated">0</div>
+                            <div class="summary-label">Updated</div>
+                        </div>
+                        <div class="col">
+                            <div class="summary-value text-warning" id="sumNotFound">0</div>
+                            <div class="summary-label">Not Found</div>
+                        </div>
+                        <div class="col">
+                            <div class="summary-value" id="sumTime">0s</div>
+                            <div class="summary-label">Time</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CỘT PHẢI - Preview dữ liệu ticket -->
+    <div class="col-lg-7">
+        <div class="card card-custom">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-table me-2"></i>Preview dữ liệu Ticket</span>
+                <div id="previewSelectWrapper">
+                    <select class="form-select form-select-sm" id="previewTicketSelect"
+                            style="width:220px;display:inline-block">
+                        <option value="">-- Chọn ticket xem --</option>
+                    </select>
+                    <small class="text-muted ms-2" id="previewCount">0 records</small>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive" style="max-height:500px;overflow-y:auto">
+                    <table class="table table-custom table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>NID</th>
+                                <th>Phone</th>
+                                <th>TicketPega</th>
+                                <th>IT Result</th>
+                                <th>Date Update</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    Chọn ticket để xem dữ liệu hiện tại
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+<!-- ===== HẾT TAB 2 ===== -->
+</div>
+{% endblock %}

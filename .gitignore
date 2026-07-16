@@ -1,0 +1,10 @@
+# Thư mục không cần push lên GitHub
+__pycache__/
+upload/
+output/
+history/
+*.pyc
+*.db
+.vscode/
+check_db.py
+query_db.py

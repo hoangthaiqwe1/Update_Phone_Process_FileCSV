@@ -1,0 +1,663 @@
+<!-- ============================================================
+     TRANG HISTORY - Lịch sử xử lý
+     Tính năng:
+       - Tìm kiếm theo NID, Phone, Ticket, Date
+       - Export ticket thành CSV
+       - CRUD: sửa/xóa record bằng tay
+       - Xóa toàn bộ ticket (để chạy lại)
+     ============================================================ -->
+{% extends "base.html" %}
+
+{% block header_icon %}clock-history{% endblock %}
+{% block header_title %}History{% endblock %}
+
+{% block content %}
+<div class="card card-custom">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2"></i>Lịch sử xử lý</span>
+        <div class="d-flex align-items-center gap-2">
+            <!-- Nút Export toàn bộ -->
+            <a href="/api/export-all-history" class="btn btn-sm btn-outline-primary" title="Export toàn bộ history ra Excel">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export All
+            </a>
+            <!-- Nút Export chọn ticket -->
+            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal"
+                    data-bs-target="#exportMultiModal" title="Chọn ticket để export">
+                <i class="bi bi-download me-1"></i>Export chọn
+            </button>
+            <!-- Nút Import Excel -->
+            <label class="btn btn-sm btn-outline-success" title="Import file Excel cá nhân vào history">
+                <i class="bi bi-upload me-1"></i>Import Excel
+                <input type="file" accept=".xlsx,.xls,.csv" id="importHistoryFile" hidden>
+            </label>
+            <!-- Nút xóa nhiều ticket -->
+            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                    data-bs-target="#deleteMultiModal" title="Xóa nhiều ticket lỗi">
+                <i class="bi bi-trash me-1"></i>Xóa ticket lỗi
+            </button>
+            <!-- Nút lọc hôm nay -->
+            <button class="btn btn-sm btn-outline-warning" id="filterTodayBtn" title="Lọc ticket xử lý trong ngày hôm nay">
+                <i class="bi bi-calendar-check me-1"></i>Hôm nay
+            </button>
+            <!-- Ô tìm kiếm -->
+            <div class="search-box" style="width:300px">
+                <i class="bi bi-search"></i>
+                <input type="text" class="form-control form-control-sm" id="historySearch"
+                       placeholder="Tìm NID, Phone, Ticket, Date...">
+            </div>
+            <!-- Nút Export (hiện khi tìm đúng ticket) -->
+            <button class="btn btn-download btn-sm" id="exportSearchBtn" style="display:none">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <!-- Nút Xóa ticket (hiện khi tìm đúng ticket) -->
+            <button class="btn btn-sm btn-outline-danger" id="deleteTicketBtn" style="display:none">
+                <i class="bi bi-trash me-1"></i>Xóa ticket
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Banner ticket (hiện khi search khớp 1 ticket) -->
+        <div class="alert alert-info small d-flex justify-content-between align-items-center"
+             id="ticketBanner" style="display:none">
+            <span id="ticketBannerText"></span>
+        </div>
+
+        <!-- Bảng dữ liệu -->
+        <div class="table-responsive">
+            <table class="table table-custom table-hover" id="historyTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Ticket xử lý</th>
+                        <th>NewPhoneNumber</th>
+                        <th>NID</th>
+                        <th>NewUsername</th>
+                        <th>TicketPega</th>
+                        <th>Date Update</th>
+                        <th>D2C Result</th>
+                        <th>IT Result</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody">
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Phân trang -->
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="historyInfo">Hiển thị 0 / 0 bản ghi</small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="historyPagination"></ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal sửa record -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil me-2"></i>Sửa record
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editId">
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">NID</label>
+                    <input type="text" class="form-control form-control-sm" id="editNID">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">NewPhoneNumber</label>
+                    <input type="text" class="form-control form-control-sm" id="editPhone">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">NewUsername</label>
+                    <input type="text" class="form-control form-control-sm" id="editUsername">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">TicketPega</label>
+                    <input type="text" class="form-control form-control-sm" id="editTicketPega">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">D2C Result</label>
+                    <input type="text" class="form-control form-control-sm" id="editD2CResult">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">IT Result</label>
+                    <input type="text" class="form-control form-control-sm" id="editITResult">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary btn-sm" id="editSaveBtn">
+                    <i class="bi bi-check me-1"></i>Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal xóa nhiều ticket -->
+<div class="modal fade" id="deleteMultiModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-trash me-2"></i>Xóa nhiều ticket
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Chọn các ticket cần xóa. Sau khi xóa, bạn có thể chạy lại ticket đó.
+                </div>
+                <div class="form-check mb-2 border-bottom pb-2">
+                    <input type="checkbox" class="form-check-input" id="selectAllTickets">
+                    <label class="form-check-label fw-bold" for="selectAllTickets">Chọn tất cả</label>
+                </div>
+                <div id="ticketCheckboxList" style="max-height:300px;overflow-y:auto">
+                    <div class="text-center text-muted py-3">Đang tải...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger btn-sm" id="deleteMultiBtn">
+                    <i class="bi bi-trash me-1"></i>Xóa đã chọn
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Export chọn ticket -->
+<div class="modal fade" id="exportMultiModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-download me-2"></i>Export theo ticket
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Chọn các ticket muốn export. Dữ liệu sẽ gộp thành 1 file CSV.
+                </div>
+                <!-- Ô tìm kiếm ticket -->
+                <div class="mb-2">
+                    <input type="text" class="form-control form-control-sm" id="exportSearchInput"
+                           placeholder="Tìm tên ticket...">
+                </div>
+                <div class="form-check mb-2 border-bottom pb-2">
+                    <input type="checkbox" class="form-check-input" id="selectAllExport">
+                    <label class="form-check-label fw-bold" for="selectAllExport">Chọn tất cả (hiển thị)</label>
+                </div>
+                <div id="exportCheckboxList" style="max-height:300px;overflow-y:auto">
+                    <div class="text-center text-muted py-3">Đang tải...</div>
+                </div>
+                <div class="mt-2 small text-muted" id="exportSelectedCount">Đã chọn: 0 ticket</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-info btn-sm text-white" id="exportMultiBtn">
+                    <i class="bi bi-download me-1"></i>Export đã chọn
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ============================================================
+// HISTORY PAGE - Tìm kiếm, CRUD, Export
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    const perPage = 50;
+    let detectedTicket = null; // Ticket đang tìm thấy
+
+    // --- Hàm load dữ liệu history ---
+    function loadHistory(page, search) {
+        let url = `/api/history?page=${page}&per_page=${perPage}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('historyBody');
+                tbody.innerHTML = '';
+
+                if (data.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">Không có dữ liệu</td></tr>';
+                    document.getElementById('historyInfo').textContent = '0 bản ghi';
+                    hideExport();
+                    return;
+                }
+
+                // Render từng dòng
+                data.data.forEach((row, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${(page - 1) * perPage + idx + 1}</td>
+                        <td><span class="badge bg-info ticket-badge" style="cursor:pointer"
+                            title="Click để tìm ticket này">${row['Ticket xử lý'] || ''}</span></td>
+                        <td>${row.NewPhoneNumber || ''}</td>
+                        <td><strong>${row.NID || ''}</strong></td>
+                        <td>${row.NewUsername || ''}</td>
+                        <td>${row.TicketPega || ''}</td>
+                        <td>${row['Date Update'] || ''}</td>
+                        <td>${row['D2C Result'] || ''}</td>
+                        <td><span class="badge ${getResultBadge(row['IT Result'])}">${row['IT Result'] || ''}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1 btn-edit"
+                                data-id="${row.id}" title="Sửa">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger btn-delete"
+                                data-id="${row.id}" title="Xóa">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Phát hiện ticket từ kết quả tìm kiếm
+                detectTicket(search, data.data);
+
+                // Click vào badge ticket → tìm ticket đó
+                document.querySelectorAll('.ticket-badge').forEach(badge => {
+                    badge.addEventListener('click', function() {
+                        document.getElementById('historySearch').value = this.textContent;
+                        loadHistory(1, this.textContent);
+                    });
+                });
+
+                // Gắn sự kiện nút Edit
+                document.querySelectorAll('.btn-edit').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        openEditModal(this.dataset.id);
+                    });
+                });
+
+                // Gắn sự kiện nút Delete
+                document.querySelectorAll('.btn-delete').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        if (confirm('Bạn có chắc muốn xóa record này?')) {
+                            deleteRecord(this.dataset.id);
+                        }
+                    });
+                });
+
+                // Thông tin phân trang
+                const start = (page - 1) * perPage + 1;
+                const end = Math.min(page * perPage, data.total);
+                document.getElementById('historyInfo').textContent =
+                    `Hiển thị ${start}-${end} / ${data.total} bản ghi`;
+                buildPagination(data.total, page, perPage);
+            });
+    }
+
+    // --- Phát hiện ticket khi tìm kiếm ---
+    function detectTicket(search, results) {
+        if (!search) { hideExport(); return; }
+        const ticketNames = [...new Set(results.map(r => r['Ticket xử lý']).filter(t => t))];
+        // Tìm đúng 1 ticket → hiện nút Export + Xóa
+        if (ticketNames.length === 1) {
+            showExport(ticketNames[0]);
+        } else {
+            const exact = ticketNames.find(t => t.toLowerCase() === search.toLowerCase());
+            if (exact) showExport(exact);
+            else hideExport();
+        }
+    }
+
+    function showExport(ticketName) {
+        detectedTicket = ticketName;
+        document.getElementById('ticketBanner').style.display = 'flex';
+        document.getElementById('ticketBannerText').innerHTML =
+            `<i class="bi bi-tag-fill me-1"></i>Ticket: <strong>${ticketName}</strong>`;
+        // Nút Export
+        const exportBtn = document.getElementById('exportSearchBtn');
+        exportBtn.style.display = 'inline-block';
+        exportBtn.onclick = () => { window.location.href = `/api/export-ticket/${encodeURIComponent(ticketName)}`; };
+        // Nút Xóa ticket
+        const delBtn = document.getElementById('deleteTicketBtn');
+        delBtn.style.display = 'inline-block';
+        delBtn.onclick = () => {
+            if (confirm(`Xóa TOÀN BỘ records của ticket "${ticketName}"?\nSau khi xóa, bạn có thể chạy lại ticket này.`)) {
+                fetch(`/api/history/delete-ticket/${encodeURIComponent(ticketName)}`, { method: 'DELETE' })
+                    .then(r => r.json())
+                    .then(data => {
+                        alert(data.message);
+                        loadHistory(1, '');
+                        document.getElementById('historySearch').value = '';
+                    });
+            }
+        };
+    }
+
+    function hideExport() {
+        detectedTicket = null;
+        document.getElementById('ticketBanner').style.display = 'none';
+        document.getElementById('exportSearchBtn').style.display = 'none';
+        document.getElementById('deleteTicketBtn').style.display = 'none';
+    }
+
+    // --- CRUD: Mở modal sửa ---
+    function openEditModal(id) {
+        fetch(`/api/history/record/${id}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) { alert(data.error); return; }
+                const r = data.data;
+                document.getElementById('editId').value = r.id;
+                document.getElementById('editNID').value = r.NID;
+                document.getElementById('editPhone').value = r.NewPhoneNumber;
+                document.getElementById('editUsername').value = r.NewUsername;
+                document.getElementById('editTicketPega').value = r.TicketPega;
+                document.getElementById('editD2CResult').value = r.D2CResult;
+                document.getElementById('editITResult').value = r.ITResult;
+                new bootstrap.Modal(document.getElementById('editModal')).show();
+            });
+    }
+
+    // --- CRUD: Lưu sau khi sửa ---
+    document.getElementById('editSaveBtn').addEventListener('click', function() {
+        const id = document.getElementById('editId').value;
+        const data = {
+            NID: document.getElementById('editNID').value,
+            NewPhoneNumber: document.getElementById('editPhone').value,
+            NewUsername: document.getElementById('editUsername').value,
+            TicketPega: document.getElementById('editTicketPega').value,
+            D2CResult: document.getElementById('editD2CResult').value,
+            ITResult: document.getElementById('editITResult').value
+        };
+        fetch(`/api/history/update/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                    loadHistory(1, document.getElementById('historySearch').value.trim());
+                } else {
+                    alert(res.error);
+                }
+            });
+    });
+
+    // --- CRUD: Xóa 1 record ---
+    function deleteRecord(id) {
+        fetch(`/api/history/delete/${id}`, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadHistory(1, document.getElementById('historySearch').value.trim());
+                } else {
+                    alert(data.error);
+                }
+            });
+    }
+
+    // --- Helper functions ---
+    function getResultBadge(result) {
+        if (!result) return 'bg-secondary';
+        const r = result.toLowerCase();
+        if (r === 'success') return 'bg-success';
+        if (r === 'failed') return 'bg-danger';
+        if (r === 'not found') return 'bg-warning text-dark';
+        return 'bg-secondary';
+    }
+
+    function buildPagination(total, current, perPage) {
+        const totalPages = Math.ceil(total / perPage);
+        const pagination = document.getElementById('historyPagination');
+        pagination.innerHTML = '';
+        if (totalPages <= 1) return;
+
+        // Nút trước
+        const prev = document.createElement('li');
+        prev.className = `page-item ${current === 1 ? 'disabled' : ''}`;
+        prev.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
+        prev.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (current > 1) loadHistory(current - 1, getSearch());
+        });
+        pagination.appendChild(prev);
+
+        // Các trang
+        let startP = Math.max(1, current - 2);
+        let endP = Math.min(totalPages, startP + 4);
+        if (endP - startP < 4) startP = Math.max(1, endP - 4);
+        for (let i = startP; i <= endP; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === current ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+            li.addEventListener('click', (e) => {
+                e.preventDefault();
+                loadHistory(i, getSearch());
+            });
+            pagination.appendChild(li);
+        }
+
+        // Nút sau
+        const next = document.createElement('li');
+        next.className = `page-item ${current === totalPages ? 'disabled' : ''}`;
+        next.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
+        next.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (current < totalPages) loadHistory(current + 1, getSearch());
+        });
+        pagination.appendChild(next);
+    }
+
+    function getSearch() {
+        return document.getElementById('historySearch').value.trim();
+    }
+
+    // --- Tìm kiếm với debounce (chờ 400ms sau khi gõ) ---
+    let searchTimeout;
+    document.getElementById('historySearch').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => loadHistory(1, this.value.trim()), 400);
+    });
+
+    // --- NÚT LỌC HÔM NAY ---
+    document.getElementById('filterTodayBtn').addEventListener('click', function() {
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yyyy = now.getFullYear();
+        const today = `${dd}/${mm}/${yyyy}`;
+        document.getElementById('historySearch').value = today;
+        loadHistory(1, today);
+    });
+
+    // --- XÓA NHIỀU TICKET (modal) ---
+    // Load danh sách ticket khi mở modal
+    document.getElementById('deleteMultiModal').addEventListener('show.bs.modal', function() {
+        const list = document.getElementById('ticketCheckboxList');
+        list.innerHTML = '<div class="text-center text-muted py-3">Đang tải...</div>';
+        fetch('/api/tickets')
+            .then(r => r.json())
+            .then(data => {
+                if (data.tickets.length === 0) {
+                    list.innerHTML = '<div class="text-center text-muted py-3">Chưa có ticket nào</div>';
+                    return;
+                }
+                list.innerHTML = '';
+                data.tickets.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = 'form-check mb-1';
+                    div.innerHTML = `
+                        <input type="checkbox" class="form-check-input ticket-cb" value="${t}" id="cb_${t}">
+                        <label class="form-check-label small" for="cb_${t}">${t}</label>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+        document.getElementById('selectAllTickets').checked = false;
+    });
+
+    // Chọn tất cả
+    document.getElementById('selectAllTickets').addEventListener('change', function() {
+        document.querySelectorAll('.ticket-cb').forEach(cb => { cb.checked = this.checked; });
+    });
+
+    // Nút xóa đã chọn
+    document.getElementById('deleteMultiBtn').addEventListener('click', function() {
+        const selected = [];
+        document.querySelectorAll('.ticket-cb:checked').forEach(cb => {
+            selected.push(cb.value);
+        });
+        if (selected.length === 0) { alert('Chưa chọn ticket nào!'); return; }
+        if (!confirm(`Xác nhận XÓA ${selected.length} ticket?\n\n${selected.join('\n')}`)) return;
+
+        fetch('/api/history/delete-tickets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tickets: selected })
+        })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message);
+                bootstrap.Modal.getInstance(document.getElementById('deleteMultiModal')).hide();
+                loadHistory(1, '');
+                document.getElementById('historySearch').value = '';
+            });
+    });
+
+    // Load dữ liệu lần đầu
+    loadHistory(1, '');
+
+    // --- IMPORT EXCEL ---
+    document.getElementById('importHistoryFile').addEventListener('change', function() {
+        const file = this.files[0];
+        if (!file) return;
+        if (!confirm(`Import file "${file.name}" vào history?\nDữ liệu sẽ được thêm vào (không ghi đè).`)) {
+            this.value = '';
+            return;
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('/api/import-history', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    let msg = data.message + '\n\nCột đã nhận diện:\n';
+                    const det = data.details.columns_detected;
+                    for (const [key, val] of Object.entries(det)) {
+                        msg += `  ${key}: ${val}\n`;
+                    }
+                    alert(msg);
+                    loadHistory(1, '');
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+                this.value = '';
+            })
+            .catch(err => {
+                alert('Lỗi kết nối: ' + err.message);
+                this.value = '';
+            });
+    });
+
+    // --- EXPORT CHỌN TICKET (modal) ---
+    let allExportTickets = [];
+    let selectedExportTickets = new Set(); // Lưu ticket đã chọn qua các lần search
+
+    document.getElementById('exportMultiModal').addEventListener('show.bs.modal', function() {
+        const list = document.getElementById('exportCheckboxList');
+        list.innerHTML = '<div class="text-center text-muted py-3">Đang tải...</div>';
+        document.getElementById('exportSearchInput').value = '';
+        selectedExportTickets.clear();
+        updateExportCount();
+        fetch('/api/tickets')
+            .then(r => r.json())
+            .then(data => {
+                allExportTickets = data.tickets || [];
+                renderExportTickets('');
+            });
+        document.getElementById('selectAllExport').checked = false;
+    });
+
+    function renderExportTickets(filter) {
+        const list = document.getElementById('exportCheckboxList');
+        const filtered = filter
+            ? allExportTickets.filter(t => t.toLowerCase().includes(filter.toLowerCase()))
+            : allExportTickets;
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<div class="text-center text-muted py-3">Không tìm thấy ticket</div>';
+            return;
+        }
+        list.innerHTML = '';
+        filtered.forEach(t => {
+            const div = document.createElement('div');
+            div.className = 'form-check mb-1';
+            const checked = selectedExportTickets.has(t) ? 'checked' : '';
+            div.innerHTML = `
+                <input type="checkbox" class="form-check-input export-cb" value="${t}" id="exp_${t}" ${checked}>
+                <label class="form-check-label small" for="exp_${t}">${t}</label>
+            `;
+            list.appendChild(div);
+        });
+        // Gắn sự kiện: khi tick/bỏ tick → cập nhật Set
+        list.querySelectorAll('.export-cb').forEach(cb => {
+            cb.addEventListener('change', function() {
+                if (this.checked) {
+                    selectedExportTickets.add(this.value);
+                } else {
+                    selectedExportTickets.delete(this.value);
+                }
+                updateExportCount();
+            });
+        });
+    }
+
+    function updateExportCount() {
+        document.getElementById('exportSelectedCount').textContent = `Đã chọn: ${selectedExportTickets.size} ticket`;
+    }
+
+    // Search trong modal export
+    document.getElementById('exportSearchInput').addEventListener('input', function() {
+        renderExportTickets(this.value.trim());
+    });
+
+    // Chọn tất cả export (chỉ chọn những cái đang hiển thị)
+    document.getElementById('selectAllExport').addEventListener('change', function() {
+        document.querySelectorAll('.export-cb').forEach(cb => {
+            cb.checked = this.checked;
+            if (this.checked) {
+                selectedExportTickets.add(cb.value);
+            } else {
+                selectedExportTickets.delete(cb.value);
+            }
+        });
+        updateExportCount();
+    });
+
+    // Nút export đã chọn
+    document.getElementById('exportMultiBtn').addEventListener('click', function() {
+        if (selectedExportTickets.size === 0) { alert('Chưa chọn ticket nào!'); return; }
+        const params = [...selectedExportTickets].map(t => 'tickets=' + encodeURIComponent(t)).join('&');
+        window.location.href = '/api/export-selected-history?' + params;
+        bootstrap.Modal.getInstance(document.getElementById('exportMultiModal')).hide();
+    });
+});
+</script>
+{% endblock %}

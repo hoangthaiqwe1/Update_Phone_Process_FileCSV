@@ -1,0 +1,486 @@
+{% extends "base.html" %}
+
+{% block header_icon %}chat-left-text{% endblock %}
+{% block header_title %}Mẫu phản hồi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- CỘT TRÁI - Chọn luồng + Actions -->
+    <div class="col-lg-3">
+        <div class="card card-custom">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-filter me-2"></i>Luồng</span>
+                <button class="btn btn-sm btn-primary" onclick="openAddModal()">
+                    <i class="bi bi-plus"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="flowList"></div>
+            </div>
+        </div>
+        <!-- Actions -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="exportResponses()">
+                    <i class="bi bi-download me-1"></i>Export JSON
+                </button>
+                <label class="btn btn-outline-info btn-sm w-100 mb-0">
+                    <i class="bi bi-upload me-1"></i>Import JSON
+                    <input type="file" accept=".json" onchange="importResponses(this)" hidden>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- CỘT PHẢI - Hiển thị mẫu phản hồi -->
+    <div class="col-lg-9">
+        <div class="card card-custom">
+            <div class="card-body py-3">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" id="searchResponse"
+                           placeholder="Tìm kiếm mẫu phản hồi...">
+                </div>
+            </div>
+        </div>
+        <div id="responsesContainer"></div>
+    </div>
+</div>
+
+<!-- MODAL THÊM/SỬA MẪU -->
+<div class="modal fade" id="responseModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Thêm mẫu phản hồi</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editId" value="">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Tiêu đề *</label>
+          <input type="text" class="form-control" id="inputTitle"
+                 placeholder="VD: KYC hết hạn - Yêu cầu update">
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Luồng *</label>
+            <select class="form-select" id="inputFlowSelect">
+                <option value="">-- Chọn luồng --</option>
+            </select>
+            <input type="text" class="form-control mt-2" id="inputFlowNew"
+                   placeholder="Hoặc nhập tên luồng mới..." style="display:none">
+            <a href="#" class="small text-primary mt-1 d-inline-block" id="toggleNewFlow"
+               onclick="toggleNewFlowInput(event)">+ Tạo luồng mới</a>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Tags</label>
+            <input type="text" class="form-control" id="inputTags"
+                   placeholder="VD: esign, kyc, nfc (phân cách bằng dấu phẩy)">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Nội dung *</label>
+          <textarea class="form-control" id="inputContent" rows="10"
+                    placeholder="Nhập nội dung mẫu phản hồi..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" class="btn btn-primary" onclick="saveResponse()">
+          <i class="bi bi-check-lg me-1"></i>Lưu
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.flow-item{border:none;padding:12px 20px;font-size:.9rem;cursor:pointer;transition:all .2s}
+.flow-item:hover{background:rgba(67,97,238,.05)}
+.flow-item.active{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important}
+.response-card{border:none;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin-bottom:16px;transition:all .2s}
+.response-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.1)}
+.response-card .card-header{background:#fff;border-bottom:1px solid var(--border-color);padding:12px 20px;border-radius:12px 12px 0 0!important;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.response-card .card-header .response-title{font-weight:600;font-size:.9rem;color:var(--text-dark)}
+.flow-badge{font-size:.75rem;padding:4px 10px;border-radius:20px}
+.flow-feol{background:#e3f2fd;color:#1565c0}
+.flow-ubank{background:#fce4ec;color:#c62828}
+.flow-default{background:#e8f5e9;color:#2e7d32}
+.response-content{background:#f8f9fa;border:1px solid var(--border-color);border-radius:8px;padding:16px;font-size:.85rem;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;max-height:300px;overflow-y:auto}
+.btn-copy{background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:.8rem;cursor:pointer;transition:all .2s}
+.btn-copy:hover{background:var(--primary-dark);color:#fff}
+.btn-copy.copied{background:var(--success)}
+.copy-count{font-size:.7rem;color:#888;margin-left:4px}
+.tag-badge{font-size:.7rem;background:#e9ecef;color:#495057;padding:2px 8px;border-radius:10px;margin-right:4px}
+.response-count{font-size:.8rem;color:#888;margin-left:8px}
+.empty-state{text-align:center;padding:60px 20px;color:#aaa}
+.empty-state i{font-size:3rem;margin-bottom:16px}
+.collapse-body{display:none}
+.collapse-body.show{display:block}
+.toggle-icon{transition:transform .2s}
+.toggle-icon.open{transform:rotate(180deg)}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentFlow = '';
+let allData = [];
+let allFlows = [];
+let totalCount = 0;  // Tổng số mẫu (không phụ thuộc filter)
+let flowCounts = {}; // Đếm số mẫu theo từng flow
+
+// ============ LOAD DATA ============
+async function loadResponses() {
+    const search = document.getElementById('searchResponse').value.trim();
+
+    // Luôn load tổng count từ API không filter
+    const totalRes = await fetch('/api/responses');
+    const totalJson = await totalRes.json();
+    totalCount = totalJson.data.length;
+    flowCounts = {};
+    totalJson.data.forEach(d => {
+        flowCounts[d.flow] = (flowCounts[d.flow] || 0) + 1;
+    });
+    allFlows = totalJson.flows;
+
+    // Load data theo filter hiện tại
+    const params = new URLSearchParams();
+    if (currentFlow) params.append('flow', currentFlow);
+    if (search) params.append('search', search);
+
+    const res = await fetch('/api/responses?' + params.toString());
+    const json = await res.json();
+    allData = json.data;
+
+    renderFlowList();
+    renderResponses();
+}
+
+// ============ RENDER FLOW LIST ============
+function renderFlowList() {
+    const container = document.getElementById('flowList');
+    let html = `<button class="list-group-item list-group-item-action flow-item ${!currentFlow?'active':''}"
+                 onclick="selectFlow('')">
+                 <i class="bi bi-grid me-2"></i>Tất cả<span class="response-count">(${totalCount})</span>
+                </button>`;
+    allFlows.forEach(f => {
+        const count = flowCounts[f] || 0;
+        const active = currentFlow === f ? 'active' : '';
+        html += `<button class="list-group-item list-group-item-action flow-item ${active}"
+                  onclick="selectFlow('${f}')">
+                  <i class="bi bi-folder me-2"></i>${f}<span class="response-count">(${count})</span>
+                 </button>`;
+    });
+    container.innerHTML = html;
+    // Update flow select trong modal
+    updateFlowSelect();
+}
+
+function updateFlowSelect() {
+    const select = document.getElementById('inputFlowSelect');
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Chọn luồng --</option>';
+    allFlows.forEach(f => {
+        select.innerHTML += `<option value="${f}">${f}</option>`;
+    });
+    select.innerHTML += '<option value="__new__">+ Tạo luồng mới...</option>';
+    if (currentVal && allFlows.includes(currentVal)) {
+        select.value = currentVal;
+    }
+}
+
+function toggleNewFlowInput(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('inputFlowNew');
+    const select = document.getElementById('inputFlowSelect');
+    if (input.style.display === 'none') {
+        input.style.display = 'block';
+        select.style.display = 'none';
+        input.focus();
+    } else {
+        input.style.display = 'none';
+        select.style.display = 'block';
+        input.value = '';
+    }
+}
+
+function getSelectedFlow() {
+    const select = document.getElementById('inputFlowSelect');
+    const input = document.getElementById('inputFlowNew');
+    if (input.style.display !== 'none' && input.value.trim()) {
+        return input.value.trim();
+    }
+    if (select.value === '__new__') {
+        return input.value.trim();
+    }
+    return select.value;
+}
+
+function setFlowValue(flow) {
+    const select = document.getElementById('inputFlowSelect');
+    const input = document.getElementById('inputFlowNew');
+    // Reset
+    input.style.display = 'none';
+    select.style.display = 'block';
+    input.value = '';
+    // Check if flow exists in options
+    if (allFlows.includes(flow)) {
+        select.value = flow;
+    } else if (flow) {
+        // Luồng mới chưa có trong list → hiện input
+        input.style.display = 'block';
+        select.style.display = 'none';
+        input.value = flow;
+    } else {
+        select.value = '';
+    }
+}
+
+function selectFlow(flow) {
+    currentFlow = flow;
+    loadResponses();
+}
+
+// ============ RENDER RESPONSES ============
+function renderResponses() {
+    const container = document.getElementById('responsesContainer');
+    if (allData.length === 0) {
+        container.innerHTML = `<div class="empty-state">
+            <i class="bi bi-inbox"></i><p>Không có mẫu phản hồi nào</p>
+            <button class="btn btn-primary btn-sm mt-2" onclick="openAddModal()">
+                <i class="bi bi-plus me-1"></i>Thêm mẫu đầu tiên
+            </button></div>`;
+        return;
+    }
+    let html = '';
+    allData.forEach(item => {
+        const badgeClass = item.flow === 'FEOL' ? 'flow-feol' :
+                          item.flow === 'UBank' ? 'flow-ubank' : 'flow-default';
+        const tags = item.tags ? item.tags.split(',').map(t =>
+            `<span class="tag-badge">${t.trim()}</span>`).join('') : '';
+        const copyCountText = item.copy_count > 0 ? `<span class="copy-count">(${item.copy_count} lần)</span>` : '';
+
+        html += `
+        <div class="card response-card">
+            <div class="card-header" onclick="toggleCard(${item.id})">
+                <div>
+                    <span class="response-title">${escapeHtml(item.title)}</span>
+                    ${copyCountText}
+                    <div class="mt-1">${tags}</div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge ${badgeClass} flow-badge">${item.flow}</span>
+                    <i class="bi bi-chevron-down toggle-icon" id="icon-${item.id}"></i>
+                </div>
+            </div>
+            <div class="card-body collapse-body" id="body-${item.id}">
+                <div class="response-content">${escapeHtml(item.content)}</div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div>
+                        <button class="btn-copy" id="copybtn-${item.id}" onclick="doCopy(event, ${item.id})">
+                            <i class="bi bi-clipboard me-1"></i>Copy
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning ms-2" onclick="openEditModal(event, ${item.id})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteItem(event, ${item.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Tạo: ${item.created_at}</small>
+                </div>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+// ============ EXPAND/COLLAPSE ============
+function toggleCard(id) {
+    const body = document.getElementById('body-' + id);
+    const icon = document.getElementById('icon-' + id);
+    body.classList.toggle('show');
+    icon.classList.toggle('open');
+}
+
+// ============ COPY ============
+function doCopy(e, id) {
+    e.stopPropagation();
+    const item = allData.find(d => d.id === id);
+    if (!item) return;
+
+    // Fallback copy luôn hoạt động
+    const textarea = document.createElement('textarea');
+    textarea.value = item.content;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    let success = false;
+    try {
+        success = document.execCommand('copy');
+    } catch (err) {
+        success = false;
+    }
+    document.body.removeChild(textarea);
+
+    if (success) {
+        // Ghi nhận copy count
+        fetch('/api/responses/' + id + '/copy', {method: 'POST'});
+        // Đổi nút
+        const btn = document.getElementById('copybtn-' + id);
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-check me-1"></i>Copied!';
+            btn.classList.add('copied');
+            setTimeout(function() {
+                btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy';
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+        // Toast
+        showToast('✓ Đã copy: ' + item.title);
+        item.copy_count++;
+    } else {
+        showToast('⚠ Copy thất bại. Vui lòng copy thủ công.');
+    }
+}
+
+// ============ TOAST NOTIFICATION ============
+function showToast(message) {
+    let toast = document.getElementById('copyToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'copyToast';
+        toast.style.cssText = 'position:fixed;bottom:30px;right:30px;background:#2ec4b6;color:#fff;padding:14px 28px;border-radius:8px;font-size:0.95rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:opacity 0.3s;opacity:0';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.display = 'block';
+    // Force reflow
+    toast.offsetHeight;
+    toast.style.opacity = '1';
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => { toast.style.display = 'none'; }, 300);
+    }, 2500);
+}
+
+// ============ MODAL ADD ============
+function openAddModal() {
+    document.getElementById('editId').value = '';
+    document.getElementById('inputTitle').value = '';
+    setFlowValue('');
+    document.getElementById('inputContent').value = '';
+    document.getElementById('inputTags').value = '';
+    document.getElementById('modalTitle').textContent = 'Thêm mẫu phản hồi';
+    updateFlowSelect();
+    new bootstrap.Modal(document.getElementById('responseModal')).show();
+}
+
+// ============ MODAL EDIT ============
+function openEditModal(e, id) {
+    e.stopPropagation();
+    const item = allData.find(d => d.id === id);
+    if (!item) return;
+    document.getElementById('editId').value = id;
+    document.getElementById('inputTitle').value = item.title;
+    updateFlowSelect();
+    setFlowValue(item.flow);
+    document.getElementById('inputContent').value = item.content;
+    document.getElementById('inputTags').value = item.tags;
+    document.getElementById('modalTitle').textContent = 'Sửa mẫu phản hồi';
+    new bootstrap.Modal(document.getElementById('responseModal')).show();
+}
+
+// ============ SAVE (ADD/EDIT) ============
+async function saveResponse() {
+    const id = document.getElementById('editId').value;
+    const flow = getSelectedFlow();
+    const body = {
+        title: document.getElementById('inputTitle').value.trim(),
+        flow: flow,
+        content: document.getElementById('inputContent').value.trim(),
+        tags: document.getElementById('inputTags').value.trim()
+    };
+    if (!body.title || !body.flow || !body.content) {
+        alert('Vui lòng nhập đầy đủ Tiêu đề, Luồng và Nội dung');
+        return;
+    }
+    const url = id ? `/api/responses/${id}` : '/api/responses';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+        method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    });
+    const json = await res.json();
+    if (json.success) {
+        bootstrap.Modal.getInstance(document.getElementById('responseModal')).hide();
+        loadResponses();
+    } else {
+        alert(json.error || 'Có lỗi xảy ra');
+    }
+}
+
+// ============ DELETE ============
+async function deleteItem(e, id) {
+    e.stopPropagation();
+    if (!confirm('Bạn có chắc muốn xóa mẫu này?')) return;
+    const res = await fetch(`/api/responses/${id}`, {method: 'DELETE'});
+    const json = await res.json();
+    if (json.success) loadResponses();
+    else alert(json.error);
+}
+
+// ============ EXPORT ============
+function exportResponses() {
+    window.location.href = '/api/responses/export';
+}
+
+// ============ IMPORT ============
+async function importResponses(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/responses/import', {method: 'POST', body: formData});
+    const json = await res.json();
+    if (json.success) {
+        alert(json.message);
+        loadResponses();
+    } else {
+        alert(json.error);
+    }
+    input.value = '';
+}
+
+// ============ UTILS ============
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============ INIT ============
+document.addEventListener('DOMContentLoaded', () => {
+    loadResponses();
+    document.getElementById('searchResponse').addEventListener('input', () => loadResponses());
+
+    // Khi chọn "Tạo luồng mới" trong dropdown
+    document.getElementById('inputFlowSelect').addEventListener('change', function() {
+        if (this.value === '__new__') {
+            document.getElementById('inputFlowNew').style.display = 'block';
+            document.getElementById('inputFlowNew').focus();
+        } else {
+            document.getElementById('inputFlowNew').style.display = 'none';
+            document.getElementById('inputFlowNew').value = '';
+        }
+    });
+});
+</script>
+{% endblock %}
+
+

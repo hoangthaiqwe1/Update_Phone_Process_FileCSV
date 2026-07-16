@@ -1,0 +1,204 @@
+<!-- ============================================================
+     TRANG NHẬT KÝ HỆ THỐNG
+     Tính năng:
+       - Xem log mỗi lần chạy Process/Update/Sửa/Xóa
+       - Tìm kiếm theo ticket, NID, thao tác, ngày
+       - Xóa từng dòng log hoặc xóa toàn bộ
+     ============================================================ -->
+{% extends "base.html" %}
+
+{% block header_icon %}journal-text{% endblock %}
+{% block header_title %}Nhật ký hệ thống{% endblock %}
+
+{% block content %}
+<div class="card card-custom">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-journal-text me-2"></i>Nhật ký hệ thống</span>
+        <div class="d-flex align-items-center gap-2">
+            <!-- Nút xóa toàn bộ log -->
+            <button class="btn btn-sm btn-outline-danger" id="deleteAllLogsBtn">
+                <i class="bi bi-trash me-1"></i>Xóa tất cả
+            </button>
+            <!-- Nút xóa theo search (hiện khi đang tìm kiếm) -->
+            <button class="btn btn-sm btn-outline-warning" id="deleteSearchLogsBtn" style="display:none">
+                <i class="bi bi-trash me-1"></i>Xóa kết quả tìm
+            </button>
+            <!-- Ô tìm kiếm -->
+            <div class="search-box" style="width:300px">
+                <i class="bi bi-search"></i>
+                <input type="text" class="form-control form-control-sm" id="logSearch"
+                       placeholder="Tìm ticket, NID, thao tác, ngày...">
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Thời gian</th>
+                        <th>Thao tác</th>
+                        <th>Trạng thái</th>
+                        <th>Chi tiết</th>
+                        <th>Duration</th>
+                        <th>Xóa</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Phân trang -->
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="logInfo">0 bản ghi</small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="logPagination"></ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const perPage = 50;
+
+    // --- Load dữ liệu log ---
+    function loadLog(page, search) {
+        let url = `/api/log?page=${page}&per_page=${perPage}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('logBody');
+                tbody.innerHTML = '';
+
+                if (data.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Không có log</td></tr>';
+                    document.getElementById('logInfo').textContent = '0 bản ghi';
+                    return;
+                }
+
+                data.data.forEach((row, idx) => {
+                    const tr = document.createElement('tr');
+                    const statusClass = row.Status === 'SUCCESS' ? 'text-success' : 'text-danger';
+                    tr.innerHTML = `
+                        <td>${(page - 1) * perPage + idx + 1}</td>
+                        <td><small>${row.DateTime || ''}</small></td>
+                        <td><small>${row.File || ''}</small></td>
+                        <td><span class="fw-bold ${statusClass}">${row.Status || ''}</span></td>
+                        <td><small>${row.Error || '-'}</small></td>
+                        <td>${row.Duration || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger btn-del-log"
+                                data-id="${row.id}" title="Xóa dòng này">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Gắn sự kiện xóa từng dòng
+                document.querySelectorAll('.btn-del-log').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        if (confirm('Xóa dòng log này?')) {
+                            fetch(`/api/log/delete/${this.dataset.id}`, { method: 'DELETE' })
+                                .then(r => r.json())
+                                .then(() => loadLog(page, getSearch()));
+                        }
+                    });
+                });
+
+                // Thông tin phân trang
+                const start = (page - 1) * perPage + 1;
+                const end = Math.min(page * perPage, data.total);
+                document.getElementById('logInfo').textContent =
+                    `Hiển thị ${start}-${end} / ${data.total} bản ghi`;
+                buildPagination(data.total, page);
+            });
+    }
+
+    function buildPagination(total, current) {
+        const totalPages = Math.ceil(total / perPage);
+        const pagination = document.getElementById('logPagination');
+        pagination.innerHTML = '';
+        if (totalPages <= 1) return;
+
+        const prev = document.createElement('li');
+        prev.className = `page-item ${current === 1 ? 'disabled' : ''}`;
+        prev.innerHTML = `<a class="page-link" href="#">«</a>`;
+        prev.addEventListener('click', (e) => { e.preventDefault(); if (current > 1) loadLog(current - 1, getSearch()); });
+        pagination.appendChild(prev);
+
+        let startP = Math.max(1, current - 2);
+        let endP = Math.min(totalPages, startP + 4);
+        for (let i = startP; i <= endP; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === current ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+            li.addEventListener('click', (e) => { e.preventDefault(); loadLog(i, getSearch()); });
+            pagination.appendChild(li);
+        }
+
+        const next = document.createElement('li');
+        next.className = `page-item ${current === totalPages ? 'disabled' : ''}`;
+        next.innerHTML = `<a class="page-link" href="#">»</a>`;
+        next.addEventListener('click', (e) => { e.preventDefault(); if (current < totalPages) loadLog(current + 1, getSearch()); });
+        pagination.appendChild(next);
+    }
+
+    function getSearch() {
+        return document.getElementById('logSearch').value.trim();
+    }
+
+    // Tìm kiếm với debounce
+    let searchTimeout;
+    document.getElementById('logSearch').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const val = this.value.trim();
+        searchTimeout = setTimeout(() => loadLog(1, val), 400);
+        // Hiện/ẩn nút "Xóa kết quả tìm"
+        document.getElementById('deleteSearchLogsBtn').style.display = val ? 'inline-block' : 'none';
+    });
+
+    // Xóa toàn bộ log
+    document.getElementById('deleteAllLogsBtn').addEventListener('click', function() {
+        if (confirm('Xác nhận XÓA TOÀN BỘ nhật ký?\nThao tác này không thể hoàn tác.')) {
+            fetch('/api/log/delete-all', { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    alert(data.message);
+                    loadLog(1, '');
+                });
+        }
+    });
+
+    // Xóa log theo kết quả tìm kiếm
+    document.getElementById('deleteSearchLogsBtn').addEventListener('click', function() {
+        const search = getSearch();
+        if (!search) return;
+        if (confirm(`Xóa tất cả log khớp "${search}"?`)) {
+            fetch(`/api/log/delete-by-search?search=${encodeURIComponent(search)}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    alert(data.message);
+                    document.getElementById('logSearch').value = '';
+                    document.getElementById('deleteSearchLogsBtn').style.display = 'none';
+                    loadLog(1, '');
+                });
+        }
+    });
+
+    // Load lần đầu
+    loadLog(1, '');
+});
+</script>
+{% endblock %}
