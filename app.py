@@ -58,6 +58,19 @@ from database import (
     get_response_by_id,
     export_all_responses,
     import_responses,
+    init_api_catalog_db,
+    get_all_api_entries,
+    get_all_api_categories,
+    add_api_entry,
+    get_api_entry_by_id,
+    update_api_entry,
+    delete_api_entry,
+    add_api_image,
+    delete_api_image,
+    get_images_by_api_id,
+    update_api_sort_order,
+    export_all_api_entries,
+    import_api_entries,
 )
 
 # Khởi tạo Flask app
@@ -72,6 +85,7 @@ for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER, HISTORY_FOLDER]:
 # Khởi tạo database (tạo bảng + index lần đầu)
 init_db()
 init_responses_db()
+init_api_catalog_db()
 
 
 # ============================================================
@@ -1524,6 +1538,376 @@ def delete_tickets():
             "message": f"Đã xóa {count} records từ {len(ticket_list)} tickets",
         }
     )
+
+
+# ============================================================
+# TRANG GIAO DIỆN API CATALOG (Quản lý API kèm hình ảnh)
+# ============================================================
+
+@app.route("/image-api")
+def image_api_page():
+    """Trang quản lý API catalog kèm hình ảnh giao diện."""
+    return render_template("imageAPI.html")
+
+
+# ============================================================
+# API - CRUD API CATALOG
+# ============================================================
+
+# Thư mục lưu ảnh upload cho API catalog
+API_IMAGES_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads', 'api_images')
+os.makedirs(API_IMAGES_FOLDER, exist_ok=True)
+
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+
+def allowed_image(filename):
+    """Kiểm tra file ảnh có đúng định dạng không."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+
+
+@app.route("/api/image-api", methods=["GET"])
+def api_get_api_entries():
+    """Lấy danh sách API entries, lọc theo category và search."""
+    category = request.args.get("category", "")
+    search = request.args.get("search", "")
+    data = get_all_api_entries(category, search)
+    categories = get_all_api_categories()
+    return jsonify({"success": True, "data": data, "categories": categories})
+
+
+@app.route("/api/image-api", methods=["POST"])
+def api_add_api_entry():
+    """Thêm API entry mới (multipart/form-data vì có ảnh)."""
+    name = request.form.get("name", "").strip()
+    method = request.form.get("method", "GET").strip().upper()
+    endpoint = request.form.get("endpoint", "").strip()
+    description = request.form.get("description", "").strip()
+    request_body = request.form.get("request_body", "").strip()
+    response_body = request.form.get("response_body", "").strip()
+    category = request.form.get("category", "").strip()
+    notes = request.form.get("notes", "").strip()
+    sort_order = int(request.form.get("sort_order", 0))
+
+    if not name or not endpoint:
+        return jsonify({"success": False, "error": "Thiếu tên API hoặc endpoint"}), 400
+
+    # Xử lý upload ảnh chính (thumbnail)
+    image_path = ""
+    if "image" in request.files:
+        image_file = request.files["image"]
+        if image_file.filename and allowed_image(image_file.filename):
+            import uuid
+            ext = image_file.filename.rsplit('.', 1)[1].lower()
+            filename = f"{uuid.uuid4().hex}.{ext}"
+            image_file.save(os.path.join(API_IMAGES_FOLDER, filename))
+            image_path = f"uploads/api_images/{filename}"
+
+    new_id = add_api_entry(name, method, endpoint, description, request_body, response_body, image_path, category, notes, sort_order)
+
+    # Xử lý upload nhiều ảnh phụ
+    extra_images = request.files.getlist("extra_images")
+    for img_file in extra_images:
+        if img_file.filename and allowed_image(img_file.filename):
+            import uuid
+            ext = img_file.filename.rsplit('.', 1)[1].lower()
+            fname = f"{uuid.uuid4().hex}.{ext}"
+            img_file.save(os.path.join(API_IMAGES_FOLDER, fname))
+            add_api_image(new_id, f"uploads/api_images/{fname}")
+
+    return jsonify({"success": True, "id": new_id, "message": "Đã thêm API entry"})
+
+
+@app.route("/api/image-api/<int:entry_id>", methods=["PUT"])
+def api_update_api_entry(entry_id):
+    """Cập nhật API entry (multipart/form-data vì có thể upload ảnh mới)."""
+    name = request.form.get("name", "").strip()
+    method = request.form.get("method", "GET").strip().upper()
+    endpoint = request.form.get("endpoint", "").strip()
+    description = request.form.get("description", "").strip()
+    request_body = request.form.get("request_body", "").strip()
+    response_body = request.form.get("response_body", "").strip()
+    category = request.form.get("category", "").strip()
+    notes = request.form.get("notes", "").strip()
+    sort_order = int(request.form.get("sort_order", 0))
+
+    if not name or not endpoint:
+        return jsonify({"success": False, "error": "Thiếu tên API hoặc endpoint"}), 400
+
+    # Xử lý upload ảnh mới (nếu có)
+    image_path = None  # None = không thay đổi ảnh
+    if "image" in request.files:
+        image_file = request.files["image"]
+        if image_file.filename and allowed_image(image_file.filename):
+            import uuid
+            # Xóa ảnh cũ nếu có
+            old_entry = get_api_entry_by_id(entry_id)
+            if old_entry and old_entry["image_path"]:
+                old_image_full = os.path.join(BASE_DIR, 'static', old_entry["image_path"])
+                if os.path.exists(old_image_full):
+                    os.remove(old_image_full)
+
+            ext = image_file.filename.rsplit('.', 1)[1].lower()
+            filename = f"{uuid.uuid4().hex}.{ext}"
+            image_file.save(os.path.join(API_IMAGES_FOLDER, filename))
+            image_path = f"uploads/api_images/{filename}"
+
+    # Kiểm tra nếu user muốn xóa ảnh (gửi flag remove_image=1)
+    if request.form.get("remove_image") == "1":
+        old_entry = get_api_entry_by_id(entry_id)
+        if old_entry and old_entry["image_path"]:
+            old_image_full = os.path.join(BASE_DIR, 'static', old_entry["image_path"])
+            if os.path.exists(old_image_full):
+                os.remove(old_image_full)
+        image_path = ""
+
+    ok = update_api_entry(entry_id, name, method, endpoint, description, request_body, response_body, image_path, category, notes, sort_order)
+
+    # Xử lý upload ảnh phụ mới
+    extra_images = request.files.getlist("extra_images")
+    for img_file in extra_images:
+        if img_file.filename and allowed_image(img_file.filename):
+            import uuid
+            ext = img_file.filename.rsplit('.', 1)[1].lower()
+            fname = f"{uuid.uuid4().hex}.{ext}"
+            img_file.save(os.path.join(API_IMAGES_FOLDER, fname))
+            add_api_image(entry_id, f"uploads/api_images/{fname}")
+
+    if ok:
+        return jsonify({"success": True, "message": "Đã cập nhật"})
+    return jsonify({"success": False, "error": "Không tìm thấy API entry"}), 404
+
+
+@app.route("/api/image-api/<int:entry_id>", methods=["DELETE"])
+def api_delete_api_entry(entry_id):
+    """Xóa API entry + xóa file ảnh."""
+    # Xóa file ảnh chính
+    entry = get_api_entry_by_id(entry_id)
+    if entry:
+        if entry["image_path"]:
+            image_full = os.path.join(BASE_DIR, 'static', entry["image_path"])
+            if os.path.exists(image_full):
+                os.remove(image_full)
+        # Xóa file ảnh phụ
+        for img in entry.get("images", []):
+            img_full = os.path.join(BASE_DIR, 'static', img["image_path"])
+            if os.path.exists(img_full):
+                os.remove(img_full)
+
+    ok = delete_api_entry(entry_id)
+    if ok:
+        return jsonify({"success": True, "message": "Đã xóa"})
+    return jsonify({"success": False, "error": "Không tìm thấy API entry"}), 404
+
+
+@app.route("/api/image-api/image/<int:image_id>", methods=["DELETE"])
+def api_delete_single_image(image_id):
+    """Xóa 1 ảnh phụ."""
+    path = delete_api_image(image_id)
+    if path:
+        img_full = os.path.join(BASE_DIR, 'static', path)
+        if os.path.exists(img_full):
+            os.remove(img_full)
+        return jsonify({"success": True, "message": "Đã xóa ảnh"})
+    return jsonify({"success": False, "error": "Không tìm thấy ảnh"}), 404
+
+
+@app.route("/api/image-api/<int:entry_id>/reorder-images", methods=["POST"])
+def api_reorder_images(entry_id):
+    """Cập nhật thứ tự ảnh phụ cho 1 API entry."""
+    data = request.get_json()
+    if not data or "image_ids" not in data:
+        return jsonify({"success": False, "error": "Thiếu dữ liệu"}), 400
+
+    from database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    for idx, img_id in enumerate(data["image_ids"]):
+        cursor.execute('UPDATE api_images SET sort_order = ? WHERE id = ? AND api_id = ?', (idx, img_id, entry_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Đã cập nhật thứ tự ảnh"})
+
+
+@app.route("/api/image-api/sort", methods=["POST"])
+def api_update_sort_order():
+    """Cập nhật thứ tự hiển thị cho nhiều API cùng lúc."""
+    data = request.get_json()
+    if not data or "items" not in data:
+        return jsonify({"success": False, "error": "Thiếu dữ liệu"}), 400
+
+    for item in data["items"]:
+        update_api_sort_order(item["id"], item["sort_order"])
+
+    return jsonify({"success": True, "message": "Đã cập nhật thứ tự"})
+
+
+@app.route("/api/image-api/export", methods=["GET"])
+def api_export_api_entries():
+    """Export toàn bộ API catalog ra ZIP (JSON + ảnh)."""
+    import json
+    import zipfile as zf
+
+    data = export_all_api_entries()
+
+    # Gom thêm image_path cho từng entry
+    all_entries = get_all_api_entries()
+    export_data = []
+    image_files = []  # (path_in_zip, path_on_disk)
+
+    for entry in all_entries:
+        item = {
+            'name': entry['name'],
+            'method': entry['method'],
+            'endpoint': entry['endpoint'],
+            'description': entry['description'],
+            'request_body': entry['request_body'],
+            'response_body': entry['response_body'],
+            'category': entry['category'],
+            'notes': entry.get('notes', ''),
+            'sort_order': entry.get('sort_order', 0),
+            'image_path': '',
+            'extra_images': []
+        }
+
+        # Ảnh chính
+        if entry['image_path']:
+            full_path = os.path.join(BASE_DIR, 'static', entry['image_path'])
+            if os.path.exists(full_path):
+                fname = os.path.basename(entry['image_path'])
+                item['image_path'] = f"images/{fname}"
+                image_files.append((f"images/{fname}", full_path))
+
+        # Ảnh phụ
+        for img in entry.get('images', []):
+            full_path = os.path.join(BASE_DIR, 'static', img['image_path'])
+            if os.path.exists(full_path):
+                fname = os.path.basename(img['image_path'])
+                item['extra_images'].append(f"images/{fname}")
+                image_files.append((f"images/{fname}", full_path))
+
+        export_data.append(item)
+
+    # Tạo ZIP
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    zip_path = os.path.join(OUTPUT_FOLDER, "api_catalog_backup.zip")
+
+    with zf.ZipFile(zip_path, 'w', zf.ZIP_DEFLATED) as zipf:
+        # Ghi JSON
+        json_content = json.dumps(export_data, ensure_ascii=False, indent=2)
+        zipf.writestr("api_catalog.json", json_content)
+        # Ghi ảnh
+        added = set()
+        for path_in_zip, path_on_disk in image_files:
+            if path_in_zip not in added:
+                zipf.write(path_on_disk, path_in_zip)
+                added.add(path_in_zip)
+
+    return send_file(zip_path, as_attachment=True, download_name="api_catalog_backup.zip")
+
+
+@app.route("/api/image-api/import", methods=["POST"])
+def api_import_api_entries():
+    """Import API catalog từ file ZIP (JSON + ảnh) hoặc file JSON thuần."""
+    import json
+    import zipfile as zf
+
+    if "file" not in request.files:
+        return jsonify({"success": False, "error": "Chưa chọn file"}), 400
+
+    file = request.files["file"]
+    filename = file.filename.lower()
+
+    if filename.endswith(".zip"):
+        # Import từ ZIP (có ảnh)
+        import tempfile
+        tmp_path = os.path.join(UPLOAD_FOLDER, "import_api.zip")
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        file.save(tmp_path)
+
+        try:
+            with zf.ZipFile(tmp_path, 'r') as zipf:
+                # Đọc JSON
+                json_content = zipf.read("api_catalog.json").decode("utf-8")
+                records = json.loads(json_content)
+
+                # Giải nén ảnh vào thư mục static/uploads/api_images
+                imported = 0
+                skipped = 0
+                for r in records:
+                    name = r.get('name', '').strip()
+                    endpoint = r.get('endpoint', '').strip()
+                    method = r.get('method', 'GET').strip().upper()
+                    if not name or not endpoint:
+                        skipped += 1
+                        continue
+
+                    # Kiểm tra trùng
+                    from database import get_db
+                    conn = get_db()
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT COUNT(*) FROM api_catalog WHERE endpoint = ? AND method = ?', (endpoint, method))
+                    if cursor.fetchone()[0] > 0:
+                        conn.close()
+                        skipped += 1
+                        continue
+                    conn.close()
+
+                    # Extract ảnh chính
+                    image_path = ""
+                    if r.get('image_path') and r['image_path'] in zipf.namelist():
+                        import uuid
+                        ext = r['image_path'].rsplit('.', 1)[1].lower() if '.' in r['image_path'] else 'png'
+                        fname = f"{uuid.uuid4().hex}.{ext}"
+                        dest = os.path.join(API_IMAGES_FOLDER, fname)
+                        with zipf.open(r['image_path']) as src, open(dest, 'wb') as dst:
+                            dst.write(src.read())
+                        image_path = f"uploads/api_images/{fname}"
+
+                    # Thêm entry
+                    new_id = add_api_entry(
+                        name, method, endpoint,
+                        r.get('description', ''),
+                        r.get('request_body', ''),
+                        r.get('response_body', ''),
+                        image_path,
+                        r.get('category', ''),
+                        r.get('notes', ''),
+                        r.get('sort_order', 0)
+                    )
+
+                    # Extract ảnh phụ
+                    for extra_path in r.get('extra_images', []):
+                        if extra_path in zipf.namelist():
+                            import uuid
+                            ext = extra_path.rsplit('.', 1)[1].lower() if '.' in extra_path else 'png'
+                            fname = f"{uuid.uuid4().hex}.{ext}"
+                            dest = os.path.join(API_IMAGES_FOLDER, fname)
+                            with zipf.open(extra_path) as src, open(dest, 'wb') as dst:
+                                dst.write(src.read())
+                            add_api_image(new_id, f"uploads/api_images/{fname}")
+
+                    imported += 1
+
+            # Cleanup
+            os.remove(tmp_path)
+            return jsonify({"success": True, "message": f"Đã import {imported} API (kèm ảnh), bỏ qua {skipped} trùng"})
+
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Lỗi đọc file ZIP: {str(e)}"}), 400
+
+    elif filename.endswith(".json"):
+        # Import từ JSON thuần (không có ảnh)
+        try:
+            content = file.read().decode("utf-8")
+            records = json.loads(content)
+            imported, skipped = import_api_entries(records)
+            return jsonify({"success": True, "message": f"Đã import {imported} API, bỏ qua {skipped} trùng"})
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Lỗi đọc file: {str(e)}"}), 400
+
+    else:
+        return jsonify({"success": False, "error": "Chỉ hỗ trợ file .zip hoặc .json"}), 400
 
 
 # ============================================================

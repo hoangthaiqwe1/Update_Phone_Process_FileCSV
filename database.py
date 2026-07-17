@@ -638,3 +638,350 @@ def import_responses(records):
     conn.commit()
     conn.close()
     return imported, skipped
+
+
+# ============================================================
+# QUẢN LÝ API CATALOG (Giao diện API kèm hình ảnh)
+# CRUD: Thêm / Sửa / Xóa / Lấy danh sách API
+# ============================================================
+
+def init_api_catalog_db():
+    """Tạo bảng api_catalog và api_images nếu chưa có."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS api_catalog (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            method TEXT NOT NULL DEFAULT 'GET',
+            endpoint TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            request_body TEXT DEFAULT '',
+            response_body TEXT DEFAULT '',
+            image_path TEXT DEFAULT '',
+            category TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT '',
+            updated_at TEXT DEFAULT ''
+        )
+    ''')
+    # Bảng lưu nhiều ảnh cho mỗi API
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS api_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            api_id INTEGER NOT NULL,
+            image_path TEXT NOT NULL,
+            caption TEXT DEFAULT '',
+            sort_order INTEGER DEFAULT 0,
+            FOREIGN KEY (api_id) REFERENCES api_catalog(id) ON DELETE CASCADE
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_api_catalog_category ON api_catalog(category)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_api_catalog_method ON api_catalog(method)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_api_images_api_id ON api_images(api_id)')
+
+    # Migrate: thêm cột mới nếu bảng đã tồn tại trước đó
+    try:
+        cursor.execute('ALTER TABLE api_catalog ADD COLUMN notes TEXT DEFAULT ""')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE api_catalog ADD COLUMN sort_order INTEGER DEFAULT 0')
+    except:
+        pass
+
+    conn.commit()
+    conn.close()
+
+
+def get_all_api_entries(category='', search=''):
+    """
+    Lấy danh sách API, có thể lọc theo category và tìm kiếm.
+    Sắp xếp theo sort_order, rồi theo tên.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    conditions = []
+    params = []
+
+    if category:
+        conditions.append('category = ?')
+        params.append(category)
+    if search:
+        like = f'%{search}%'
+        conditions.append('(name LIKE ? OR endpoint LIKE ? OR description LIKE ? OR notes LIKE ?)')
+        params.extend([like, like, like, like])
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    cursor.execute(f'SELECT * FROM api_catalog {where} ORDER BY sort_order ASC, category, name', params)
+
+    rows = cursor.fetchall()
+    data = []
+    for row in rows:
+        entry = {
+            'id': row['id'],
+            'name': row['name'],
+            'method': row['method'],
+            'endpoint': row['endpoint'],
+            'description': row['description'],
+            'request_body': row['request_body'],
+            'response_body': row['response_body'],
+            'image_path': row['image_path'],
+            'category': row['category'],
+            'notes': row['notes'] if 'notes' in row.keys() else '',
+            'sort_order': row['sort_order'] if 'sort_order' in row.keys() else 0,
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at'],
+            'images': []
+        }
+        data.append(entry)
+
+    # Load all images cho các API
+    if data:
+        api_ids = [d['id'] for d in data]
+        placeholders = ','.join(['?' for _ in api_ids])
+        cursor.execute(f'SELECT * FROM api_images WHERE api_id IN ({placeholders}) ORDER BY sort_order ASC, id ASC', api_ids)
+        img_rows = cursor.fetchall()
+        # Group images by api_id
+        img_map = {}
+        for img in img_rows:
+            aid = img['api_id']
+            if aid not in img_map:
+                img_map[aid] = []
+            img_map[aid].append({
+                'id': img['id'],
+                'image_path': img['image_path'],
+                'caption': img['caption'],
+                'sort_order': img['sort_order']
+            })
+        for entry in data:
+            entry['images'] = img_map.get(entry['id'], [])
+
+    conn.close()
+    return data
+
+
+def get_all_api_categories():
+    """Lấy danh sách các category duy nhất."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT DISTINCT category FROM api_catalog WHERE category != "" ORDER BY category')
+    rows = cursor.fetchall()
+    categories = [row['category'] for row in rows]
+    conn.close()
+    return categories
+
+
+def add_api_entry(name, method, endpoint, description, request_body, response_body, image_path, category, notes='', sort_order=0):
+    """Thêm API entry mới."""
+    from datetime import datetime
+    now = datetime.now().strftime('%d/%m/%Y %H:%M')
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO api_catalog (name, method, endpoint, description, request_body, response_body, image_path, category, notes, sort_order, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (name, method, endpoint, description, request_body, response_body, image_path, category, notes, sort_order, now, now))
+    new_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
+
+def get_api_entry_by_id(entry_id):
+    """Lấy 1 API entry theo ID kèm danh sách ảnh."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM api_catalog WHERE id = ?', (entry_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+
+    entry = {
+        'id': row['id'],
+        'name': row['name'],
+        'method': row['method'],
+        'endpoint': row['endpoint'],
+        'description': row['description'],
+        'request_body': row['request_body'],
+        'response_body': row['response_body'],
+        'image_path': row['image_path'],
+        'category': row['category'],
+        'notes': row['notes'] if 'notes' in row.keys() else '',
+        'sort_order': row['sort_order'] if 'sort_order' in row.keys() else 0,
+        'created_at': row['created_at'],
+        'updated_at': row['updated_at'],
+        'images': []
+    }
+
+    # Load images
+    cursor.execute('SELECT * FROM api_images WHERE api_id = ? ORDER BY sort_order ASC, id ASC', (entry_id,))
+    img_rows = cursor.fetchall()
+    for img in img_rows:
+        entry['images'].append({
+            'id': img['id'],
+            'image_path': img['image_path'],
+            'caption': img['caption'],
+            'sort_order': img['sort_order']
+        })
+
+    conn.close()
+    return entry
+
+
+def update_api_entry(entry_id, name, method, endpoint, description, request_body, response_body, image_path, category, notes='', sort_order=0):
+    """Cập nhật API entry theo ID."""
+    from datetime import datetime
+    now = datetime.now().strftime('%d/%m/%Y %H:%M')
+    conn = get_db()
+    cursor = conn.cursor()
+    if image_path is not None:
+        cursor.execute('''
+            UPDATE api_catalog
+            SET name = ?, method = ?, endpoint = ?, description = ?, request_body = ?,
+                response_body = ?, image_path = ?, category = ?, notes = ?, sort_order = ?, updated_at = ?
+            WHERE id = ?
+        ''', (name, method, endpoint, description, request_body, response_body, image_path, category, notes, sort_order, now, entry_id))
+    else:
+        cursor.execute('''
+            UPDATE api_catalog
+            SET name = ?, method = ?, endpoint = ?, description = ?, request_body = ?,
+                response_body = ?, category = ?, notes = ?, sort_order = ?, updated_at = ?
+            WHERE id = ?
+        ''', (name, method, endpoint, description, request_body, response_body, category, notes, sort_order, now, entry_id))
+    conn.commit()
+    affected = cursor.rowcount
+    conn.close()
+    return affected > 0
+
+
+def delete_api_entry(entry_id):
+    """Xóa API entry + xóa tất cả ảnh liên quan trong DB."""
+    conn = get_db()
+    cursor = conn.cursor()
+    # Xóa ảnh phụ
+    cursor.execute('DELETE FROM api_images WHERE api_id = ?', (entry_id,))
+    # Xóa entry
+    cursor.execute('DELETE FROM api_catalog WHERE id = ?', (entry_id,))
+    conn.commit()
+    affected = cursor.rowcount
+    conn.close()
+    return affected > 0
+
+
+def add_api_image(api_id, image_path, caption='', sort_order=0):
+    """Thêm 1 ảnh cho API entry."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO api_images (api_id, image_path, caption, sort_order)
+        VALUES (?, ?, ?, ?)
+    ''', (api_id, image_path, caption, sort_order))
+    new_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
+
+def delete_api_image(image_id):
+    """Xóa 1 ảnh theo ID."""
+    conn = get_db()
+    cursor = conn.cursor()
+    # Lấy path trước khi xóa
+    cursor.execute('SELECT image_path FROM api_images WHERE id = ?', (image_id,))
+    row = cursor.fetchone()
+    path = row['image_path'] if row else None
+    cursor.execute('DELETE FROM api_images WHERE id = ?', (image_id,))
+    conn.commit()
+    conn.close()
+    return path
+
+
+def get_images_by_api_id(api_id):
+    """Lấy danh sách ảnh của 1 API."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM api_images WHERE api_id = ? ORDER BY sort_order ASC, id ASC', (api_id,))
+    rows = cursor.fetchall()
+    data = []
+    for row in rows:
+        data.append({
+            'id': row['id'],
+            'image_path': row['image_path'],
+            'caption': row['caption'],
+            'sort_order': row['sort_order']
+        })
+    conn.close()
+    return data
+
+
+def update_api_sort_order(entry_id, sort_order):
+    """Cập nhật thứ tự hiển thị cho 1 API."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE api_catalog SET sort_order = ? WHERE id = ?', (sort_order, entry_id))
+    conn.commit()
+    conn.close()
+
+
+def export_all_api_entries():
+    """Export toàn bộ API catalog (không kèm file ảnh, chỉ metadata)."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM api_catalog ORDER BY sort_order ASC, category, name')
+    rows = cursor.fetchall()
+    data = []
+    for row in rows:
+        entry = {
+            'name': row['name'],
+            'method': row['method'],
+            'endpoint': row['endpoint'],
+            'description': row['description'],
+            'request_body': row['request_body'],
+            'response_body': row['response_body'],
+            'category': row['category'],
+            'notes': row['notes'] if 'notes' in row.keys() else '',
+            'sort_order': row['sort_order'] if 'sort_order' in row.keys() else 0,
+        }
+        data.append(entry)
+    conn.close()
+    return data
+
+
+def import_api_entries(records):
+    """
+    Import API entries từ file JSON backup.
+    Kiểm tra trùng theo endpoint + method.
+    Trả về: (imported_count, skipped_count)
+    """
+    from datetime import datetime
+    now = datetime.now().strftime('%d/%m/%Y %H:%M')
+    conn = get_db()
+    cursor = conn.cursor()
+    imported = 0
+    skipped = 0
+    for r in records:
+        name = r.get('name', '').strip()
+        endpoint = r.get('endpoint', '').strip()
+        method = r.get('method', 'GET').strip().upper()
+        if not name or not endpoint:
+            skipped += 1
+            continue
+        # Kiểm tra trùng endpoint + method
+        cursor.execute('SELECT COUNT(*) FROM api_catalog WHERE endpoint = ? AND method = ?', (endpoint, method))
+        if cursor.fetchone()[0] > 0:
+            skipped += 1
+            continue
+        cursor.execute('''
+            INSERT INTO api_catalog (name, method, endpoint, description, request_body, response_body, image_path, category, notes, sort_order, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?)
+        ''', (name, method, endpoint, r.get('description', ''), r.get('request_body', ''),
+              r.get('response_body', ''), r.get('category', ''), r.get('notes', ''),
+              r.get('sort_order', 0), now, now))
+        imported += 1
+    conn.commit()
+    conn.close()
+    return imported, skipped

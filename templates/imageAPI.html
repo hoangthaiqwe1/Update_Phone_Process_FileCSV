@@ -1,0 +1,938 @@
+{% extends "base.html" %}
+
+{% block header_icon %}image{% endblock %}
+{% block header_title %}Giao diện FEOL2.0 - API{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- CỘT TRÁI - Category + Actions -->
+    <div class="col-lg-3">
+        <div class="card card-custom">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-folder me-2"></i>Nhóm API</span>
+                <button class="btn btn-sm btn-primary" onclick="openAddModal()">
+                    <i class="bi bi-plus"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="categoryList"></div>
+            </div>
+        </div>
+        <!-- Actions -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="exportApis()">
+                    <i class="bi bi-download me-1"></i>Export ZIP (kèm ảnh)
+                </button>
+                <label class="btn btn-outline-info btn-sm w-100 mb-0">
+                    <i class="bi bi-upload me-1"></i>Import ZIP/JSON
+                    <input type="file" accept=".zip,.json" onchange="importApis(this)" hidden>
+                </label>
+            </div>
+        </div>
+        <!-- Thống kê -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <small class="text-muted">Tổng API</small>
+                    <span class="fw-bold" id="totalCount">0</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <small class="text-muted">Nhóm</small>
+                    <span class="fw-bold" id="categoryCount">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CỘT PHẢI - Danh sách API -->
+    <div class="col-lg-9">
+        <div class="card card-custom">
+            <div class="card-body py-3">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" id="searchApi"
+                           placeholder="Tìm kiếm API theo tên, endpoint, mô tả, ghi chú...">
+                </div>
+            </div>
+        </div>
+        <div id="apiContainer"></div>
+    </div>
+</div>
+
+<!-- MODAL THÊM/SỬA API -->
+<div class="modal fade" id="apiModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Thêm API mới</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editId" value="">
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Tên API *</label>
+            <input type="text" class="form-control" id="inputName"
+                   placeholder="VD: Update Phone Number">
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="form-label fw-semibold">Method *</label>
+            <select class="form-select" id="inputMethod">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+                <option value="PATCH">PATCH</option>
+            </select>
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="form-label fw-semibold">Thứ tự</label>
+            <input type="number" class="form-control" id="inputSortOrder" value="0" min="0">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-8 mb-3">
+            <label class="form-label fw-semibold">Endpoint *</label>
+            <input type="text" class="form-control" id="inputEndpoint"
+                   placeholder="VD: /api/v1/customer/update-phone">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label fw-semibold">Nhóm</label>
+            <select class="form-select" id="inputCategorySelect">
+                <option value="">-- Chọn nhóm --</option>
+            </select>
+            <input type="text" class="form-control mt-2" id="inputCategoryNew"
+                   placeholder="Nhập nhóm mới..." style="display:none">
+            <a href="#" class="small text-primary mt-1 d-inline-block"
+               onclick="toggleNewCategory(event)">+ Tạo nhóm mới</a>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Mô tả</label>
+          <textarea class="form-control" id="inputDescription" rows="2"
+                    placeholder="Mô tả chức năng API..."></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold"><i class="bi bi-sticky me-1"></i>Ghi chú cho team</label>
+          <textarea class="form-control" id="inputNotes" rows="2"
+                    placeholder="VD: Cần header X-Token, chỉ dùng môi trường UAT..."></textarea>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Request Body (JSON)</label>
+            <textarea class="form-control font-monospace" id="inputRequestBody" rows="5"
+                      placeholder='{"phone": "0961338170", "nid": "025200006000"}'></textarea>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Response Body (JSON)</label>
+            <textarea class="form-control font-monospace" id="inputResponseBody" rows="5"
+                      placeholder='{"success": true, "message": "Updated"}'></textarea>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Ảnh chính (thumbnail)</label>
+            <input type="file" class="form-control" id="inputImage" accept="image/*"
+                   onchange="previewImage(this)">
+            <div id="imagePreview" class="mt-2"></div>
+            <div id="currentImage" class="mt-2"></div>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Ảnh phụ (nhiều ảnh)</label>
+            <input type="file" class="form-control" id="inputExtraImages" accept="image/*" multiple>
+            <small class="text-muted">Có thể chọn nhiều ảnh cùng lúc</small>
+            <div id="existingImages" class="mt-2"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" class="btn btn-primary" onclick="saveApiEntry()">
+          <i class="bi bi-check-lg me-1"></i>Lưu
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL XEM CHI TIẾT -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detailTitle">Chi tiết API</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detailBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX với nút prev/next -->
+<div class="lightbox-overlay" id="lightbox" onclick="onLightboxClick(event)">
+    <button class="lightbox-nav lightbox-prev" onclick="lightboxPrev(event)"><i class="bi bi-chevron-left"></i></button>
+    <img src="" id="lightboxImg" alt="Full image">
+    <button class="lightbox-nav lightbox-next" onclick="lightboxNext(event)"><i class="bi bi-chevron-right"></i></button>
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <div class="lightbox-counter" id="lightboxCounter"></div>
+</div>
+
+<style>
+.api-card{border:none;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin-bottom:16px;transition:all .2s;overflow:hidden}
+.api-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.1);transform:translateY(-1px)}
+.api-card .card-header{background:#fff;border-bottom:1px solid var(--border-color);padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.api-card .api-name{font-weight:600;font-size:.95rem;color:var(--text-dark)}
+.api-card .api-endpoint{font-family:monospace;font-size:.82rem;color:#555;background:#f1f3f5;padding:3px 8px;border-radius:4px;display:inline-block;margin-top:4px;cursor:pointer;transition:background .2s}
+.api-card .api-endpoint:hover{background:#e2e6ea}
+.method-badge{font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px}
+.method-GET{background:#e3f2fd;color:#1565c0}
+.method-POST{background:#e8f5e9;color:#2e7d32}
+.method-PUT{background:#fff3e0;color:#e65100}
+.method-DELETE{background:#fce4ec;color:#c62828}
+.method-PATCH{background:#f3e5f5;color:#6a1b9a}
+.category-item{border:none;padding:12px 20px;font-size:.9rem;cursor:pointer;transition:all .2s}
+.category-item:hover{background:rgba(67,97,238,.05)}
+.category-item.active{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important}
+.category-count{font-size:.8rem;color:#888;margin-left:8px}
+.api-image-thumb{width:140px;height:90px;object-fit:cover;border-radius:6px;cursor:pointer;transition:all .2s;border:1px solid #eee}
+.api-image-thumb:hover{opacity:.85;transform:scale(1.03)}
+.api-thumbs-row{display:flex;gap:8px;padding:10px 20px 14px;overflow-x:auto;flex-wrap:nowrap;align-items:center}
+.thumb-extra{cursor:grab;position:relative}
+.thumb-extra:active{cursor:grabbing}
+.thumb-extra.dragging{opacity:.4;transform:scale(.9)}
+.thumb-extra.drag-over{border:2px solid var(--primary);box-shadow:0 0 8px rgba(67,97,238,.4)}
+.thumb-main{border:2px solid #4caf50;position:relative}
+.api-description{font-size:.83rem;color:#666;margin-top:4px}
+.api-notes{font-size:.8rem;color:#e65100;background:#fff8e1;padding:4px 8px;border-radius:4px;margin-top:4px;border-left:3px solid #ff9800}
+.empty-state{text-align:center;padding:60px 20px;color:#aaa}
+.empty-state i{font-size:3rem;margin-bottom:16px}
+.detail-image{max-width:100%;max-height:400px;border-radius:8px;border:1px solid #eee;margin-bottom:8px;object-fit:contain;cursor:pointer}
+.detail-gallery{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.detail-gallery img{width:120px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer;transition:all .2s}
+.detail-gallery img:hover{transform:scale(1.05);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.detail-gallery-carousel{display:flex;gap:10px;overflow-x:auto;padding:8px 0;scroll-snap-type:x mandatory}
+.detail-gallery-carousel .detail-image{min-width:200px;max-width:320px;height:200px;object-fit:contain;scroll-snap-align:start;border:1px solid #eee;border-radius:8px;cursor:pointer;flex-shrink:0}
+.detail-images-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:10px;max-height:60vh;overflow-y:auto;padding:8px;border:1px solid #eee;border-radius:10px;background:#fafafa}
+.detail-grid-item{position:relative;cursor:pointer;border-radius:8px;overflow:hidden;border:1px solid #ddd;transition:all .2s;aspect-ratio:4/3}
+.detail-grid-item:hover{box-shadow:0 3px 12px rgba(0,0,0,.15);transform:translateY(-2px)}
+.detail-grid-item img{width:100%;height:100%;object-fit:cover}
+.detail-grid-label{position:absolute;bottom:4px;right:6px;background:rgba(0,0,0,.6);color:#fff;font-size:.65rem;padding:2px 6px;border-radius:4px}
+.json-block{background:#1e1e1e;color:#d4d4d4;padding:16px;border-radius:8px;font-family:monospace;font-size:.8rem;white-space:pre-wrap;word-wrap:break-word;max-height:300px;overflow-y:auto}
+#imagePreview img{max-width:200px;max-height:120px;border-radius:6px;border:1px solid #ddd;object-fit:contain}
+#currentImage img{max-width:120px;max-height:80px;border-radius:6px;border:1px solid #ddd;object-fit:contain}
+#existingImages{display:flex;gap:6px;flex-wrap:wrap}
+#existingImages .img-item{position:relative;display:inline-block}
+#existingImages .img-item img{width:80px;height:55px;object-fit:cover;border-radius:4px;border:1px solid #ddd}
+#existingImages .img-item .btn-del{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:#dc3545;color:#fff;border:none;font-size:.6rem;line-height:18px;padding:0;cursor:pointer}
+.lightbox-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:999999;justify-content:center;align-items:center}
+.lightbox-overlay.show{display:flex}
+.lightbox-overlay img{max-width:80vw;max-height:85vh;object-fit:contain;border-radius:8px;user-select:none;cursor:grab;transition:transform .1s ease}
+.lightbox-close{position:absolute;top:20px;right:30px;color:#fff;font-size:2rem;background:none;border:none;cursor:pointer;z-index:1000000}
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);color:#fff;font-size:2rem;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:50px;height:50px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s;z-index:1000000}
+.lightbox-nav:hover{background:rgba(255,255,255,.3)}
+.lightbox-prev{left:20px}
+.lightbox-next{right:20px}
+.lightbox-counter{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#fff;font-size:.9rem;background:rgba(0,0,0,.5);padding:6px 16px;border-radius:20px;z-index:1000000}
+.copy-toast{position:fixed;bottom:30px;right:30px;background:#2ec4b6;color:#fff;padding:12px 24px;border-radius:8px;font-size:.9rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .3s;pointer-events:none}
+.copy-toast.show{opacity:1}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentCategory = '';
+let allData = [];
+let allCategories = [];
+let totalCount = 0;
+let categoryCounts = {};
+let removeImageFlag = false;
+let imagesToDelete = [];
+
+// ============ LOAD DATA ============
+async function loadApiEntries() {
+    const search = document.getElementById('searchApi').value.trim();
+    const totalRes = await fetch('/api/image-api');
+    const totalJson = await totalRes.json();
+    totalCount = totalJson.data.length;
+    categoryCounts = {};
+    totalJson.data.forEach(d => {
+        const cat = d.category || 'Chưa phân nhóm';
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    });
+    allCategories = totalJson.categories;
+
+    const params = new URLSearchParams();
+    if (currentCategory) params.append('category', currentCategory);
+    if (search) params.append('search', search);
+    const res = await fetch('/api/image-api?' + params.toString());
+    const json = await res.json();
+    allData = json.data;
+
+    renderCategoryList();
+    renderApiList();
+    document.getElementById('totalCount').textContent = totalCount;
+    document.getElementById('categoryCount').textContent = allCategories.length;
+}
+
+// ============ RENDER CATEGORY LIST ============
+function renderCategoryList() {
+    const container = document.getElementById('categoryList');
+    let html = `<button class="list-group-item list-group-item-action category-item ${!currentCategory?'active':''}"
+                 onclick="selectCategory('')">
+                 <i class="bi bi-grid me-2"></i>Tất cả<span class="category-count">(${totalCount})</span>
+                </button>`;
+    allCategories.forEach(c => {
+        const count = categoryCounts[c] || 0;
+        const active = currentCategory === c ? 'active' : '';
+        html += `<button class="list-group-item list-group-item-action category-item ${active}"
+                  onclick="selectCategory('${escapeHtml(c)}')">
+                  <i class="bi bi-folder me-2"></i>${escapeHtml(c)}<span class="category-count">(${count})</span>
+                 </button>`;
+    });
+    container.innerHTML = html;
+    updateCategorySelect();
+}
+
+function updateCategorySelect() {
+    const select = document.getElementById('inputCategorySelect');
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Chọn nhóm --</option>';
+    allCategories.forEach(c => {
+        select.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+    if (currentVal && allCategories.includes(currentVal)) select.value = currentVal;
+}
+
+function toggleNewCategory(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('inputCategoryNew');
+    const select = document.getElementById('inputCategorySelect');
+    if (input.style.display === 'none') {
+        input.style.display = 'block'; select.style.display = 'none'; input.focus();
+    } else {
+        input.style.display = 'none'; select.style.display = 'block'; input.value = '';
+    }
+}
+
+function getSelectedCategory() {
+    const input = document.getElementById('inputCategoryNew');
+    if (input.style.display !== 'none' && input.value.trim()) return input.value.trim();
+    return document.getElementById('inputCategorySelect').value;
+}
+
+function selectCategory(cat) { currentCategory = cat; loadApiEntries(); }
+
+// ============ RENDER API LIST ============
+function renderApiList() {
+    const container = document.getElementById('apiContainer');
+    if (allData.length === 0) {
+        container.innerHTML = `<div class="empty-state">
+            <i class="bi bi-inbox"></i><p>Không có API nào</p>
+            <button class="btn btn-primary btn-sm mt-2" onclick="openAddModal()">
+                <i class="bi bi-plus me-1"></i>Thêm API đầu tiên
+            </button></div>`;
+        return;
+    }
+    let html = '';
+    allData.forEach(item => {
+        // Gom tất cả ảnh
+        let itemImages = [];
+        if (item.image_path) itemImages.push('/static/' + item.image_path);
+        if (item.images && item.images.length > 0) {
+            item.images.forEach(img => itemImages.push('/static/' + img.image_path));
+        }
+
+        // Render tất cả ảnh dạng thumbnail nhỏ (draggable)
+        let imageHtml = '';
+        if (itemImages.length > 0) {
+            imageHtml = `<div class="api-thumbs-row" id="thumbs-${item.id}" data-api-id="${item.id}">`;
+            // Ảnh chính (không drag, luôn ở đầu)
+            if (item.image_path) {
+                imageHtml += `<img src="/static/${item.image_path}" class="api-image-thumb thumb-main" onclick='openLightbox(${JSON.stringify(itemImages)}, 0)' alt="Ảnh chính" title="Ảnh chính">`;
+            }
+            // Ảnh phụ (draggable)
+            if (item.images && item.images.length > 0) {
+                item.images.forEach((img, idx) => {
+                    const lbIdx = item.image_path ? idx + 1 : idx;
+                    imageHtml += `<img src="/static/${img.image_path}" class="api-image-thumb thumb-extra" draggable="true"
+                        data-img-id="${img.id}" data-api-id="${item.id}"
+                        onclick='openLightbox(${JSON.stringify(itemImages)}, ${lbIdx})'
+                        alt="Ảnh ${idx+1}" title="Kéo để sắp xếp">`;
+                });
+            }
+            imageHtml += `</div>`;
+        }
+
+        const descHtml = item.description ? `<div class="api-description">${escapeHtml(item.description)}</div>` : '';
+        const notesHtml = item.notes ? `<div class="api-notes"><i class="bi bi-sticky me-1"></i>${escapeHtml(item.notes)}</div>` : '';
+        const imgCount = itemImages.length;
+        const imgBadge = imgCount > 1 ? `<span class="badge bg-secondary ms-1" style="font-size:.65rem">${imgCount} ảnh</span>` : '';
+
+        html += `
+        <div class="card api-card">
+            <div class="card-header">
+                <div style="flex:1;min-width:0">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="method-badge method-${item.method}">${item.method}</span>
+                        <span class="api-name">${escapeHtml(item.name)}</span>${imgBadge}
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint(event, '${escapeAttr(item.endpoint)}')" title="Click để copy">
+                        ${escapeHtml(item.endpoint)} <i class="bi bi-clipboard" style="font-size:.7rem;opacity:.5"></i>
+                    </div>
+                    ${descHtml}${notesHtml}
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0 ms-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewDetail(${item.id})" title="Xem chi tiết">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="openEditModal(${item.id})" title="Sửa">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteEntry(${item.id})" title="Xóa">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            ${imageHtml}
+        </div>`;
+    });
+    container.innerHTML = html;
+    initDragDrop();
+}
+
+// ============ COPY ENDPOINT ============
+function copyEndpoint(e, endpoint) {
+    e.stopPropagation();
+    const textarea = document.createElement('textarea');
+    textarea.value = endpoint;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('✓ Copied: ' + endpoint);
+}
+
+// ============ VIEW DETAIL ============
+function viewDetail(id) {
+    const item = allData.find(d => d.id === id);
+    if (!item) return;
+    document.getElementById('detailTitle').textContent = item.name;
+
+    // Gom tất cả ảnh (chính + phụ) thành 1 mảng
+    let allImages = [];
+    if (item.image_path) allImages.push('/static/' + item.image_path);
+    if (item.images && item.images.length > 0) {
+        item.images.forEach(img => allImages.push('/static/' + img.image_path));
+    }
+
+    let html = `
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="method-badge method-${item.method}" style="font-size:.85rem;padding:6px 14px">${item.method}</span>
+            <code style="font-size:1rem;cursor:pointer" onclick="copyEndpoint(event, '${escapeAttr(item.endpoint)}')">${escapeHtml(item.endpoint)} <i class="bi bi-clipboard"></i></code>
+        </div>`;
+
+    if (item.description) html += `<p class="text-muted">${escapeHtml(item.description)}</p>`;
+    if (item.notes) html += `<div class="api-notes mb-3"><i class="bi bi-sticky me-1"></i>${escapeHtml(item.notes)}</div>`;
+
+    // Hiển thị ảnh dạng lưới, scroll bình thường
+    if (allImages.length > 0) {
+        html += `<div class="detail-images-grid">`;
+        allImages.forEach((src, idx) => {
+            html += `<div class="detail-grid-item" data-lb-images='${JSON.stringify(allImages)}' data-lb-index="${idx}">
+                <img src="${src}" alt="Ảnh ${idx + 1}">
+                <span class="detail-grid-label">${idx + 1}</span>
+            </div>`;
+        });
+        html += `</div>`;
+    }
+
+    if (item.request_body) {
+        html += `<h6 class="mt-3"><i class="bi bi-arrow-up-circle me-1"></i>Request Body</h6>
+                 <div class="json-block">${formatJson(item.request_body)}</div>`;
+    }
+    if (item.response_body) {
+        html += `<h6 class="mt-3"><i class="bi bi-arrow-down-circle me-1"></i>Response Body</h6>
+                 <div class="json-block">${formatJson(item.response_body)}</div>`;
+    }
+    html += `<div class="mt-3 text-muted small">
+        <i class="bi bi-clock me-1"></i>Tạo: ${item.created_at} | Cập nhật: ${item.updated_at}
+        ${item.category ? ' | Nhóm: ' + escapeHtml(item.category) : ''}
+    </div>`;
+
+    document.getElementById('detailBody').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('detailModal')).show();
+}
+
+function formatJson(str) {
+    try { return escapeHtml(JSON.stringify(JSON.parse(str), null, 2)); }
+    catch(e) { return escapeHtml(str); }
+}
+
+// ============ LIGHTBOX CAROUSEL ============
+let lightboxImages = [];
+let lightboxIndex = 0;
+let lbZoom = 1;
+let lbPanX = 0, lbPanY = 0;
+let lbDragStartX = 0, lbDragStartY = 0;
+let lbDragMode = ''; // 'swipe' | 'pan'
+let lbPanBaseX = 0, lbPanBaseY = 0;
+
+function openLightbox(images, index) {
+    if (typeof images === 'string') {
+        lightboxImages = [images];
+        lightboxIndex = 0;
+    } else {
+        lightboxImages = images;
+        lightboxIndex = index || 0;
+    }
+    resetZoom();
+    updateLightbox();
+    document.getElementById('lightbox').classList.add('show');
+}
+
+function resetZoom() {
+    lbZoom = 1; lbPanX = 0; lbPanY = 0;
+    const img = document.getElementById('lightboxImg');
+    if (img) img.style.transform = 'scale(1)';
+}
+
+function applyTransform() {
+    const img = document.getElementById('lightboxImg');
+    img.style.transform = `translate(${lbPanX}px, ${lbPanY}px) scale(${lbZoom})`;
+}
+
+function updateLightbox() {
+    const img = document.getElementById('lightboxImg');
+    img.src = lightboxImages[lightboxIndex];
+    resetZoom();
+    const counter = document.getElementById('lightboxCounter');
+    if (lightboxImages.length > 1) {
+        counter.textContent = `${lightboxIndex + 1} / ${lightboxImages.length}`;
+        counter.style.display = 'block';
+    } else {
+        counter.style.display = 'none';
+    }
+}
+
+function lightboxPrev(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (lightboxImages.length <= 1) return;
+    lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+    updateLightbox();
+}
+
+function lightboxNext(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (lightboxImages.length <= 1) return;
+    lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+    updateLightbox();
+}
+
+function onLightboxClick(e) {
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('show');
+    resetZoom();
+}
+
+(function initLightboxInteractions() {
+    document.addEventListener('DOMContentLoaded', () => {
+        const lb = document.getElementById('lightbox');
+        const img = document.getElementById('lightboxImg');
+
+        // --- MOUSE DOWN ---
+        img.addEventListener('mousedown', e => {
+            e.preventDefault();
+            lbDragStartX = e.clientX;
+            lbDragStartY = e.clientY;
+            lbPanBaseX = lbPanX;
+            lbPanBaseY = lbPanY;
+            lbDragMode = lbZoom > 1 ? 'pan' : 'swipe';
+            img.style.cursor = 'grabbing';
+        });
+
+        // --- MOUSE MOVE ---
+        lb.addEventListener('mousemove', e => {
+            if (!lbDragMode) return;
+            const dx = e.clientX - lbDragStartX;
+            const dy = e.clientY - lbDragStartY;
+            if (lbDragMode === 'pan') {
+                lbPanX = lbPanBaseX + dx;
+                lbPanY = lbPanBaseY + dy;
+                applyTransform();
+            } else if (lbDragMode === 'swipe') {
+                img.style.transform = `translateX(${dx}px) scale(1)`;
+            }
+        });
+
+        // --- MOUSE UP ---
+        lb.addEventListener('mouseup', e => {
+            if (!lbDragMode) return;
+            const dx = e.clientX - lbDragStartX;
+            if (lbDragMode === 'swipe') {
+                if (Math.abs(dx) > 80 && lightboxImages.length > 1) {
+                    if (dx < 0) lightboxNext();
+                    else lightboxPrev();
+                } else {
+                    resetZoom();
+                }
+            }
+            lbDragMode = '';
+            img.style.cursor = 'grab';
+        });
+
+        lb.addEventListener('mouseleave', () => {
+            if (lbDragMode === 'swipe') resetZoom();
+            lbDragMode = '';
+        });
+
+        // --- SCROLL WHEEL = ZOOM ---
+        lb.addEventListener('wheel', e => {
+            if (!lb.classList.contains('show')) return;
+            e.preventDefault();
+            const step = e.deltaY > 0 ? -0.2 : 0.2;
+            lbZoom = Math.max(1, Math.min(5, lbZoom + step));
+            if (lbZoom === 1) { lbPanX = 0; lbPanY = 0; }
+            applyTransform();
+        }, { passive: false });
+
+        // --- DOUBLE CLICK = TOGGLE ZOOM ---
+        img.addEventListener('dblclick', e => {
+            e.stopPropagation();
+            if (lbZoom > 1) {
+                lbZoom = 1; lbPanX = 0; lbPanY = 0;
+            } else {
+                lbZoom = 2.5;
+            }
+            applyTransform();
+        });
+
+        // --- TOUCH SWIPE ---
+        let touchStartX = 0;
+        img.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+        img.addEventListener('touchend', e => {
+            if (lbZoom > 1) return;
+            const diff = e.changedTouches[0].clientX - touchStartX;
+            if (Math.abs(diff) > 60 && lightboxImages.length > 1) {
+                if (diff < 0) lightboxNext(); else lightboxPrev();
+            }
+        });
+    });
+})();
+
+// ============ IMAGE PREVIEW ============
+function previewImage(input) {
+    const preview = document.getElementById('imagePreview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = `<img src="${e.target.result}" alt="Preview">
+                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="clearImageInput()"><i class="bi bi-x"></i></button>`;
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else { preview.innerHTML = ''; }
+}
+function clearImageInput() {
+    document.getElementById('inputImage').value = '';
+    document.getElementById('imagePreview').innerHTML = '';
+}
+
+// ============ MODAL ADD ============
+function openAddModal() {
+    document.getElementById('editId').value = '';
+    document.getElementById('inputName').value = '';
+    document.getElementById('inputMethod').value = 'GET';
+    document.getElementById('inputEndpoint').value = '';
+    document.getElementById('inputDescription').value = '';
+    document.getElementById('inputNotes').value = '';
+    document.getElementById('inputRequestBody').value = '';
+    document.getElementById('inputResponseBody').value = '';
+    document.getElementById('inputSortOrder').value = '0';
+    document.getElementById('inputImage').value = '';
+    document.getElementById('inputExtraImages').value = '';
+    document.getElementById('imagePreview').innerHTML = '';
+    document.getElementById('currentImage').innerHTML = '';
+    document.getElementById('existingImages').innerHTML = '';
+    document.getElementById('inputCategorySelect').style.display = 'block';
+    document.getElementById('inputCategoryNew').style.display = 'none';
+    document.getElementById('inputCategoryNew').value = '';
+    document.getElementById('inputCategorySelect').value = '';
+    document.getElementById('modalTitle').textContent = 'Thêm API mới';
+    removeImageFlag = false;
+    imagesToDelete = [];
+    updateCategorySelect();
+    new bootstrap.Modal(document.getElementById('apiModal')).show();
+}
+
+// ============ MODAL EDIT ============
+function openEditModal(id) {
+    const item = allData.find(d => d.id === id);
+    if (!item) return;
+    document.getElementById('editId').value = id;
+    document.getElementById('inputName').value = item.name;
+    document.getElementById('inputMethod').value = item.method;
+    document.getElementById('inputEndpoint').value = item.endpoint;
+    document.getElementById('inputDescription').value = item.description;
+    document.getElementById('inputNotes').value = item.notes || '';
+    document.getElementById('inputRequestBody').value = item.request_body;
+    document.getElementById('inputResponseBody').value = item.response_body;
+    document.getElementById('inputSortOrder').value = item.sort_order || 0;
+    document.getElementById('inputImage').value = '';
+    document.getElementById('inputExtraImages').value = '';
+    document.getElementById('imagePreview').innerHTML = '';
+    document.getElementById('modalTitle').textContent = 'Sửa API';
+    removeImageFlag = false;
+    imagesToDelete = [];
+
+    // Ảnh chính hiện tại
+    if (item.image_path) {
+        document.getElementById('currentImage').innerHTML = `
+            <div class="d-flex align-items-center gap-2">
+                <img src="/static/${item.image_path}" alt="Current">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="markRemoveImage()">
+                    <i class="bi bi-trash me-1"></i>Xóa
+                </button>
+            </div>`;
+    } else { document.getElementById('currentImage').innerHTML = ''; }
+
+    // Ảnh phụ hiện có
+    let existHtml = '';
+    if (item.images && item.images.length > 0) {
+        item.images.forEach(img => {
+            existHtml += `<div class="img-item" id="img-item-${img.id}">
+                <img src="/static/${img.image_path}" alt="">
+                <button class="btn-del" onclick="markDeleteImage(${img.id})">&times;</button>
+            </div>`;
+        });
+    }
+    document.getElementById('existingImages').innerHTML = existHtml;
+
+    // Category
+    updateCategorySelect();
+    document.getElementById('inputCategorySelect').style.display = 'block';
+    document.getElementById('inputCategoryNew').style.display = 'none';
+    document.getElementById('inputCategoryNew').value = '';
+    if (allCategories.includes(item.category)) {
+        document.getElementById('inputCategorySelect').value = item.category;
+    } else if (item.category) {
+        document.getElementById('inputCategoryNew').style.display = 'block';
+        document.getElementById('inputCategorySelect').style.display = 'none';
+        document.getElementById('inputCategoryNew').value = item.category;
+    }
+    new bootstrap.Modal(document.getElementById('apiModal')).show();
+}
+
+function markRemoveImage() {
+    removeImageFlag = true;
+    document.getElementById('currentImage').innerHTML = '<span class="text-danger small"><i class="bi bi-info-circle me-1"></i>Ảnh sẽ bị xóa khi lưu</span>';
+}
+
+function markDeleteImage(imgId) {
+    imagesToDelete.push(imgId);
+    const el = document.getElementById('img-item-' + imgId);
+    if (el) el.style.display = 'none';
+}
+
+// ============ SAVE ============
+async function saveApiEntry() {
+    const id = document.getElementById('editId').value;
+    const formData = new FormData();
+    formData.append('name', document.getElementById('inputName').value.trim());
+    formData.append('method', document.getElementById('inputMethod').value);
+    formData.append('endpoint', document.getElementById('inputEndpoint').value.trim());
+    formData.append('description', document.getElementById('inputDescription').value.trim());
+    formData.append('notes', document.getElementById('inputNotes').value.trim());
+    formData.append('request_body', document.getElementById('inputRequestBody').value.trim());
+    formData.append('response_body', document.getElementById('inputResponseBody').value.trim());
+    formData.append('category', getSelectedCategory());
+    formData.append('sort_order', document.getElementById('inputSortOrder').value || '0');
+
+    const imageInput = document.getElementById('inputImage');
+    if (imageInput.files[0]) formData.append('image', imageInput.files[0]);
+    if (removeImageFlag) formData.append('remove_image', '1');
+
+    // Ảnh phụ mới
+    const extraInput = document.getElementById('inputExtraImages');
+    if (extraInput.files.length > 0) {
+        for (let i = 0; i < extraInput.files.length; i++) {
+            formData.append('extra_images', extraInput.files[i]);
+        }
+    }
+
+    if (!formData.get('name') || !formData.get('endpoint')) {
+        alert('Vui lòng nhập Tên API và Endpoint');
+        return;
+    }
+
+    const url = id ? `/api/image-api/${id}` : '/api/image-api';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, body: formData });
+    const json = await res.json();
+
+    if (json.success) {
+        // Xóa ảnh phụ đã đánh dấu
+        for (const imgId of imagesToDelete) {
+            await fetch(`/api/image-api/image/${imgId}`, { method: 'DELETE' });
+        }
+        bootstrap.Modal.getInstance(document.getElementById('apiModal')).hide();
+        removeImageFlag = false;
+        imagesToDelete = [];
+        loadApiEntries();
+    } else {
+        alert(json.error || 'Có lỗi xảy ra');
+    }
+}
+
+// ============ DELETE ============
+async function deleteEntry(id) {
+    if (!confirm('Bạn có chắc muốn xóa API này?')) return;
+    const res = await fetch(`/api/image-api/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success) loadApiEntries();
+    else alert(json.error);
+}
+
+// ============ EXPORT / IMPORT ============
+function exportApis() { window.location.href = '/api/image-api/export'; }
+
+async function importApis(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/image-api/import', { method: 'POST', body: formData });
+    const json = await res.json();
+    if (json.success) { showToast(json.message); loadApiEntries(); }
+    else alert(json.error);
+    input.value = '';
+}
+
+// ============ TOAST ============
+function showToast(message) {
+    let toast = document.querySelector('.copy-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.className = 'copy-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ============ UTILS ============
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+function escapeAttr(text) {
+    return (text || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// ============ DRAG & DROP REORDER IMAGES ============
+let draggedImg = null;
+
+function initDragDrop() {
+    document.querySelectorAll('.thumb-extra').forEach(img => {
+        img.addEventListener('dragstart', e => {
+            draggedImg = img;
+            img.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        img.addEventListener('dragend', () => {
+            img.classList.remove('dragging');
+            document.querySelectorAll('.thumb-extra').forEach(el => el.classList.remove('drag-over'));
+            draggedImg = null;
+        });
+        img.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (img !== draggedImg && img.classList.contains('thumb-extra')) {
+                img.classList.add('drag-over');
+            }
+        });
+        img.addEventListener('dragleave', () => {
+            img.classList.remove('drag-over');
+        });
+        img.addEventListener('drop', e => {
+            e.preventDefault();
+            img.classList.remove('drag-over');
+            if (!draggedImg || draggedImg === img) return;
+            // Cùng API?
+            if (draggedImg.dataset.apiId !== img.dataset.apiId) return;
+
+            const container = img.closest('.api-thumbs-row');
+            const allExtras = [...container.querySelectorAll('.thumb-extra')];
+            const fromIdx = allExtras.indexOf(draggedImg);
+            const toIdx = allExtras.indexOf(img);
+
+            // Di chuyển DOM
+            if (fromIdx < toIdx) {
+                container.insertBefore(draggedImg, img.nextSibling);
+            } else {
+                container.insertBefore(draggedImg, img);
+            }
+
+            // Lưu thứ tự mới lên server
+            const newOrder = [...container.querySelectorAll('.thumb-extra')].map(el => parseInt(el.dataset.imgId));
+            const apiId = draggedImg.dataset.apiId;
+            saveImageOrder(apiId, newOrder);
+        });
+    });
+}
+
+async function saveImageOrder(apiId, imageIds) {
+    await fetch(`/api/image-api/${apiId}/reorder-images`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ image_ids: imageIds })
+    });
+    showToast('✓ Đã lưu thứ tự ảnh');
+    // Reload để cập nhật data
+    setTimeout(() => loadApiEntries(), 500);
+}
+
+// ============ INIT ============
+document.addEventListener('DOMContentLoaded', () => {
+    loadApiEntries();
+    document.getElementById('searchApi').addEventListener('input', () => loadApiEntries());
+    // Keyboard: ESC đóng lightbox, Arrow lướt ảnh
+    document.addEventListener('keydown', e => {
+        const lb = document.getElementById('lightbox');
+        if (!lb.classList.contains('show')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') { e.preventDefault(); lightboxPrev(); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); lightboxNext(); }
+    });
+
+    // Click ảnh trong detail modal → đóng modal trước rồi mở lightbox
+    document.addEventListener('click', e => {
+        const gridItem = e.target.closest('.detail-grid-item');
+        if (!gridItem) return;
+        const images = JSON.parse(gridItem.dataset.lbImages);
+        const index = parseInt(gridItem.dataset.lbIndex);
+
+        // Đóng detail modal
+        const detailModal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
+        if (detailModal) {
+            detailModal.hide();
+            // Chờ modal đóng xong rồi mở lightbox
+            document.getElementById('detailModal').addEventListener('hidden.bs.modal', function handler() {
+                document.getElementById('detailModal').removeEventListener('hidden.bs.modal', handler);
+                openLightbox(images, index);
+            });
+        } else {
+            openLightbox(images, index);
+        }
+    });
+});
+</script>
+{% endblock %}
