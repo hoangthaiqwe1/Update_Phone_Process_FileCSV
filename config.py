@@ -38,7 +38,7 @@ ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}
 NID_VARIANTS = ['nid', 'customernid', 'customer_nid']
 
 # Các biến thể tên cột Result (kết quả xử lý)
-RESULT_VARIANTS = ['result', 'it_result', 'it result']
+RESULT_VARIANTS = ['result', 'it_result', 'it result', 'd2cresult', 'd2c_result', 'd2c result']
 
 # Các biến thể tên cột Số điện thoại
 PHONE_VARIANTS = ['phonenumber', 'phone_number', 'newphonenumber', 'new_phone_number']
@@ -60,7 +60,7 @@ PHONE_STANDARD_LENGTH = 10
 # NID chuẩn 12 số (bắt đầu bằng 0)
 # VD: 25200006000 (11 số) → 025200006000 (12 số)
 # Đặt = 0 nếu NID của hệ thống bạn không cố định độ dài
-NID_STANDARD_LENGTH = 12
+NID_STANDARD_LENGTH = 0
 
 # Các biến thể tên cột Username
 USERNAME_VARIANTS = ['newusername', 'new_username', 'username']

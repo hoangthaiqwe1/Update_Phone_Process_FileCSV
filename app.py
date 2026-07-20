@@ -207,6 +207,10 @@ def read_file(filepath):
         wb.close()
         df = pd.DataFrame(data, columns=headers)
 
+        # Loại bỏ cột trống (không có header thật, chỉ là Col_X)
+        real_cols = [c for c in df.columns if not c.startswith('Col_')]
+        df = df[real_cols]
+
     return df
 
 
@@ -257,6 +261,14 @@ def process_merge(d2c_path, result_path, index, folder_name=None):
     df_d2c[nid_col_d2c] = df_d2c[nid_col_d2c].apply(fix_leading_zero_nid)
     df_result[nid_col_result] = df_result[nid_col_result].apply(fix_leading_zero_nid)
 
+    # Strip whitespace + loại ký tự ẩn để đảm bảo match
+    df_d2c[nid_col_d2c] = df_d2c[nid_col_d2c].str.strip().str.replace(r'\s+', '', regex=True)
+    df_result[nid_col_result] = df_result[nid_col_result].str.strip().str.replace(r'\s+', '', regex=True)
+
+    # Chuẩn hóa NID: bỏ số 0 thừa ở đầu để so sánh (vì 1 file text giữ 0, 1 file number mất 0)
+    df_d2c['_nid_merge'] = df_d2c[nid_col_d2c].str.lstrip('0')
+    df_result['_nid_merge'] = df_result[nid_col_result].str.lstrip('0')
+
     # Fix phone trong D2C nếu có cột phone
     phone_col_temp = detect_column(df_d2c, PHONE_VARIANTS)
     if phone_col_temp:
@@ -274,14 +286,41 @@ def process_merge(d2c_path, result_path, index, folder_name=None):
 
     # --- Tạo bảng tra cứu NID → Result (giữ lần cuối nếu trùng) ---
     result_map = (
-        df_result.drop_duplicates(subset=[nid_col_result], keep="last")
-        .set_index(nid_col_result)[result_col]
+        df_result.drop_duplicates(subset=['_nid_merge'], keep="last")
+        .set_index('_nid_merge')[result_col]
         .to_dict()
     )
 
+    # DEBUG: Log 3 NID đầu tiên của mỗi file để kiểm tra
+    d2c_nids_sample = df_d2c['_nid_merge'].head(3).tolist()
+    result_nids_sample = list(result_map.keys())[:3]
+    warnings.append(f"DEBUG D2C NID mẫu: {d2c_nids_sample}")
+    warnings.append(f"DEBUG Result NID mẫu: {result_nids_sample}")
+    warnings.append(f"DEBUG D2C NID col: '{nid_col_d2c}' | Result NID col: '{nid_col_result}' | Result col: '{result_col}'")
+
     # --- Merge: thêm cột IT Result vào D2C ---
-    # NID không tìm thấy trong Result → ghi "NOT FOUND"
-    df_d2c["IT Result"] = df_d2c[nid_col_d2c].map(result_map).fillna("NOT FOUND")
+    # NID không tìm thấy trong Result → dừng process, trả lỗi
+    df_d2c["IT Result"] = df_d2c['_nid_merge'].map(result_map).fillna("NOT FOUND")
+
+    # Kiểm tra: nếu có NID không tìm thấy → ngưng process
+    not_found_df = df_d2c[df_d2c["IT Result"] == "NOT FOUND"]
+    if not not_found_df.empty:
+        not_found_nids = not_found_df[nid_col_d2c].tolist()
+        # Hiển thị tối đa 10 NID đầu tiên
+        show_nids = not_found_nids[:10]
+        remaining = len(not_found_nids) - 10 if len(not_found_nids) > 10 else 0
+        error_msg = (
+            f"File D2C {index}: Có {len(not_found_nids)} NID không tìm thấy trong file Result. "
+            f"NID: {', '.join(show_nids)}"
+        )
+        if remaining > 0:
+            error_msg += f" ... và {remaining} NID khác"
+        # Xóa cột tạm
+        df_d2c = df_d2c.drop(columns=['_nid_merge'], errors='ignore')
+        return None, error_msg
+
+    # Xóa cột tạm
+    df_d2c = df_d2c.drop(columns=['_nid_merge'], errors='ignore')
 
     # --- Thêm cột "Ticket xử lý" = tên export người dùng đặt ---
     ticket_name = folder_name if folder_name else f"Ticket_{index}"
@@ -302,13 +341,18 @@ def process_merge(d2c_path, result_path, index, folder_name=None):
         cols = ["Ticket xử lý"] + cols
         df_d2c = df_d2c[cols]
 
-    # --- Tạo thư mục output và export CSV ---
+    # --- Tạo thư mục output và export Excel (.xlsx) ---
     ticket_folder = os.path.join(OUTPUT_FOLDER, ticket_name)
     os.makedirs(ticket_folder, exist_ok=True)
-    csv_filename = f"{ticket_name}.csv"
-    csv_path = os.path.join(ticket_folder, csv_filename)
-    # UTF-8 BOM để Excel mở đúng tiếng Việt
-    df_d2c.to_csv(csv_path, index=False, encoding="utf-8-sig")
+    xlsx_filename = f"{ticket_name}.xlsx"
+    xlsx_path = os.path.join(ticket_folder, xlsx_filename)
+    # Export Excel với tất cả cột format Text (giữ số 0 đầu, không bị scientific notation)
+    with pd.ExcelWriter(xlsx_path, engine='openpyxl') as writer:
+        df_d2c.to_excel(writer, index=False, sheet_name='Data')
+        worksheet = writer.sheets['Data']
+        for col in worksheet.columns:
+            for cell in col:
+                cell.number_format = '@'  # Format text
 
     # --- Chuẩn bị dữ liệu lưu vào history ---
     history_records = []
@@ -330,7 +374,7 @@ def process_merge(d2c_path, result_path, index, folder_name=None):
     return {
         "ticket_name": ticket_name,
         "ticket_folder": ticket_folder,
-        "csv_path": csv_path,
+        "csv_path": xlsx_path,
         "history_records": history_records,
         "warnings": warnings,
         "total_rows": len(df_d2c),
@@ -1150,8 +1194,13 @@ def update_result():
                     "IT Result",
                 ]
             ]
-            csv_path = os.path.join(ticket_folder, f"{ticket_name}.csv")
-            df_export.to_csv(csv_path, index=False, encoding="utf-8-sig")
+            csv_path = os.path.join(ticket_folder, f"{ticket_name}.xlsx")
+            with pd.ExcelWriter(csv_path, engine='openpyxl') as writer:
+                df_export.to_excel(writer, index=False, sheet_name='Data')
+                worksheet = writer.sheets['Data']
+                for col in worksheet.columns:
+                    for cell in col:
+                        cell.number_format = '@'
 
             # Tạo ZIP
             zip_filename = f"{ticket_name}.zip"
