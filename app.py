@@ -78,6 +78,19 @@ app = Flask(__name__)
 # Giới hạn upload tối đa 50MB
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
+
+# Global error handler: luôn trả JSON thay vì trang HTML lỗi
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    traceback.print_exc()
+    return jsonify({"success": False, "error": f"Lỗi server: {str(e)}"}), 500
+
+
+@app.errorhandler(413)
+def handle_file_too_large(e):
+    return jsonify({"success": False, "error": "File quá lớn (tối đa 50MB)"}), 413
+
 # Tạo thư mục cần thiết nếu chưa có
 for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER, HISTORY_FOLDER]:
     os.makedirs(folder, exist_ok=True)
@@ -219,9 +232,10 @@ def read_file(filepath):
 # Ghép kết quả từ file Result vào file D2C dựa theo NID
 # Thêm cột "IT Result" và "Ticket xử lý" rồi export CSV
 # ============================================================
-def process_merge(d2c_path, result_path, index, folder_name=None):
+def process_merge(d2c_path, result_paths, index, folder_name=None):
     """
-    Merge file Result vào file D2C theo NID.
+    Merge nhiều file Result vào file D2C theo NID.
+    result_paths: list các đường dẫn file Result
     Trả về: (dict kết quả, None) nếu thành công
              (None, chuỗi lỗi) nếu thất bại
     """
@@ -231,72 +245,77 @@ def process_merge(d2c_path, result_path, index, folder_name=None):
     except Exception as e:
         return None, f"File D2C {index}: Không đọc được - {str(e)}"
 
-    # --- Đọc file Result ---
-    try:
-        df_result = read_file(result_path)
-    except Exception as e:
-        return None, f"File Result {index}: Không đọc được - {str(e)}"
+    # --- Đọc và gộp tất cả file Result ---
+    df_results_list = []
+    for idx, rpath in enumerate(result_paths, 1):
+        try:
+            df_r = read_file(rpath)
+            df_results_list.append(df_r)
+        except Exception as e:
+            return None, f"File Result {index} (file {idx}): Không đọc được - {str(e)}"
 
-    # --- Tìm cột NID trong cả 2 file ---
+    # Kiểm tra tất cả file Result phải có cột NID và Result
+    for idx, df_r in enumerate(df_results_list, 1):
+        nid_col_r = detect_column(df_r, NID_VARIANTS)
+        result_col_r = detect_column(df_r, RESULT_VARIANTS)
+        if not nid_col_r:
+            return None, f"File Result {index} (file {idx}): Thiếu cột NID"
+        if not result_col_r:
+            return None, f"File Result {index} (file {idx}): Thiếu cột result"
+
+    # --- Tìm cột NID trong D2C ---
     nid_col_d2c = detect_column(df_d2c, NID_VARIANTS)
-    nid_col_result = detect_column(df_result, NID_VARIANTS)
-    result_col = detect_column(df_result, RESULT_VARIANTS)
-
-    # Kiểm tra thiếu cột bắt buộc
     if not nid_col_d2c:
         return None, f"File D2C {index}: Thiếu cột NID"
-    if not nid_col_result:
-        return None, f"File Result {index}: Thiếu cột NID"
-    if not result_col:
-        return None, f"File Result {index}: Thiếu cột result"
 
     # --- Loại bỏ dòng trống (dòng không có NID) ---
     df_d2c = df_d2c[df_d2c[nid_col_d2c].str.strip() != ""].reset_index(drop=True)
-    df_result = df_result[df_result[nid_col_result].str.strip() != ""].reset_index(
-        drop=True
-    )
 
-    # --- Chuẩn hóa số 0 đầu cho NID và Phone ---
-    # Áp dụng cho cả file D2C và Result để đảm bảo merge khớp
+    # --- Chuẩn hóa số 0 đầu cho NID và Phone trong D2C ---
     df_d2c[nid_col_d2c] = df_d2c[nid_col_d2c].apply(fix_leading_zero_nid)
-    df_result[nid_col_result] = df_result[nid_col_result].apply(fix_leading_zero_nid)
 
     # Strip whitespace + loại ký tự ẩn để đảm bảo match
     df_d2c[nid_col_d2c] = df_d2c[nid_col_d2c].str.strip().str.replace(r'\s+', '', regex=True)
-    df_result[nid_col_result] = df_result[nid_col_result].str.strip().str.replace(r'\s+', '', regex=True)
 
-    # Chuẩn hóa NID: bỏ số 0 thừa ở đầu để so sánh (vì 1 file text giữ 0, 1 file number mất 0)
+    # Chuẩn hóa NID: bỏ số 0 thừa ở đầu để so sánh
     df_d2c['_nid_merge'] = df_d2c[nid_col_d2c].str.lstrip('0')
-    df_result['_nid_merge'] = df_result[nid_col_result].str.lstrip('0')
 
     # Fix phone trong D2C nếu có cột phone
     phone_col_temp = detect_column(df_d2c, PHONE_VARIANTS)
     if phone_col_temp:
         df_d2c[phone_col_temp] = df_d2c[phone_col_temp].apply(fix_leading_zero_phone)
 
-    # --- Kiểm tra NID trùng trong file Result (cảnh báo) ---
+    # --- Gộp tất cả file Result thành 1 bảng tra cứu NID → Result ---
+    # File sau sẽ ghi đè NID trùng từ file trước
     warnings = []
-    duplicates = df_result[df_result.duplicated(subset=[nid_col_result], keep=False)]
-    if not duplicates.empty:
-        dup_nids = duplicates[nid_col_result].unique().tolist()[:5]
-        warnings.append(
-            f"WARNING: NID trùng trong Result {index}: "
-            f"{', '.join(str(x) for x in dup_nids)}"
+    result_map = {}
+    for idx, df_r in enumerate(df_results_list, 1):
+        nid_col_r = detect_column(df_r, NID_VARIANTS)
+        result_col_r = detect_column(df_r, RESULT_VARIANTS)
+
+        # Loại bỏ dòng trống
+        df_r = df_r[df_r[nid_col_r].str.strip() != ""].reset_index(drop=True)
+        # Chuẩn hóa NID
+        df_r[nid_col_r] = df_r[nid_col_r].apply(fix_leading_zero_nid)
+        df_r[nid_col_r] = df_r[nid_col_r].str.strip().str.replace(r'\s+', '', regex=True)
+        df_r['_nid_merge'] = df_r[nid_col_r].str.lstrip('0')
+
+        # Kiểm tra NID trùng trong file này
+        duplicates = df_r[df_r.duplicated(subset=[nid_col_r], keep=False)]
+        if not duplicates.empty:
+            dup_nids = duplicates[nid_col_r].unique().tolist()[:5]
+            warnings.append(
+                f"WARNING: NID trùng trong Result {index} (file {idx}): "
+                f"{', '.join(str(x) for x in dup_nids)}"
+            )
+
+        # Gộp vào result_map (file sau ghi đè file trước nếu trùng NID)
+        file_map = (
+            df_r.drop_duplicates(subset=['_nid_merge'], keep="last")
+            .set_index('_nid_merge')[result_col_r]
+            .to_dict()
         )
-
-    # --- Tạo bảng tra cứu NID → Result (giữ lần cuối nếu trùng) ---
-    result_map = (
-        df_result.drop_duplicates(subset=['_nid_merge'], keep="last")
-        .set_index('_nid_merge')[result_col]
-        .to_dict()
-    )
-
-    # DEBUG: Log 3 NID đầu tiên của mỗi file để kiểm tra
-    d2c_nids_sample = df_d2c['_nid_merge'].head(3).tolist()
-    result_nids_sample = list(result_map.keys())[:3]
-    warnings.append(f"DEBUG D2C NID mẫu: {d2c_nids_sample}")
-    warnings.append(f"DEBUG Result NID mẫu: {result_nids_sample}")
-    warnings.append(f"DEBUG D2C NID col: '{nid_col_d2c}' | Result NID col: '{nid_col_result}' | Result col: '{result_col}'")
+        result_map.update(file_map)
 
     # --- Merge: thêm cột IT Result vào D2C ---
     # NID không tìm thấy trong Result → dừng process, trả lỗi
@@ -910,8 +929,9 @@ def process_files():
             )
             continue
 
-        # Kiểm tra: file Result có được upload không
-        if result_key not in request.files or request.files[result_key].filename == "":
+        # Kiểm tra: file Result có được upload không (hỗ trợ nhiều file)
+        result_files = request.files.getlist(result_key)
+        if not result_files or all(f.filename == "" for f in result_files):
             fail_count += 1
             results.append(
                 {"index": i, "status": "error", "message": f"Thiếu file Result số {i}"}
@@ -928,9 +948,8 @@ def process_files():
             continue
 
         d2c_file = request.files[d2c_key]
-        result_file = request.files[result_key]
 
-        # Kiểm tra định dạng file
+        # Kiểm tra định dạng file D2C
         if not allowed_file(d2c_file.filename):
             fail_count += 1
             results.append(
@@ -941,27 +960,40 @@ def process_files():
                 }
             )
             continue
-        if not allowed_file(result_file.filename):
-            fail_count += 1
-            results.append(
-                {
-                    "index": i,
-                    "status": "error",
-                    "message": f"File Result {i}: Chỉ hỗ trợ xlsx, xls, csv",
-                }
-            )
+
+        # Kiểm tra định dạng tất cả file Result
+        invalid_result = False
+        for rf in result_files:
+            if rf.filename and not allowed_file(rf.filename):
+                fail_count += 1
+                results.append(
+                    {
+                        "index": i,
+                        "status": "error",
+                        "message": f"File Result {i} ({rf.filename}): Chỉ hỗ trợ xlsx, xls, csv",
+                    }
+                )
+                invalid_result = True
+                break
+        if invalid_result:
             continue
 
         # Lưu file upload tạm
         d2c_path = os.path.join(UPLOAD_FOLDER, f"d2c_{i}_{d2c_file.filename}")
-        result_path = os.path.join(UPLOAD_FOLDER, f"result_{i}_{result_file.filename}")
         d2c_file.save(d2c_path)
-        result_file.save(result_path)
 
-        # --- Thực hiện merge ---
+        # Lưu tất cả file Result
+        result_paths = []
+        for j, rf in enumerate(result_files):
+            if rf.filename:
+                rpath = os.path.join(UPLOAD_FOLDER, f"result_{i}_{j}_{rf.filename}")
+                rf.save(rpath)
+                result_paths.append(rpath)
+
+        # --- Thực hiện merge (truyền list các file Result) ---
         merge_start = time.time()
         folder_name = export_name if export_name else f"Ticket_{i}"
-        merge_result, error = process_merge(d2c_path, result_path, i, folder_name)
+        merge_result, error = process_merge(d2c_path, result_paths, i, folder_name)
         merge_duration = round(time.time() - merge_start, 2)
 
         if error:
@@ -1008,7 +1040,7 @@ def process_files():
         log_entries.append(
             {
                 "DateTime": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                "File": f"PROCESS - Ticket: {folder_name} | D2C: {d2c_file.filename} | Result: {result_file.filename}",
+                "File": f"PROCESS - Ticket: {folder_name} | D2C: {d2c_file.filename} | Result: {', '.join(rf.filename for rf in result_files if rf.filename)}",
                 "Status": "SUCCESS",
                 "Error": f'{merge_result["total_rows"]} rows, {merge_result["success_count"]} matched, {merge_result["not_found_count"]} not found',
                 "Duration": f"{merge_duration}s",

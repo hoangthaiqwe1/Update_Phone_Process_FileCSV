@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /**
      * Tạo các ô upload cho mỗi cặp file
-     * Mỗi cặp gồm: Tên export + File D2C + File Result
+     * Mỗi cặp gồm: Tên export + File D2C + File Result (cho phép chọn nhiều file Result)
      */
     function generateFilePairs(count) {
         filePairsContainer.innerHTML = '';
@@ -140,7 +140,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="col-md-4 mb-2">
                         <label class="form-label small fw-semibold">File Result FEOL ${i}</label>
                         <input type="file" class="form-control form-control-sm"
-                               name="result_${i}" accept=".xlsx,.xls,.csv" required>
+                               name="result_${i}" accept=".xlsx,.xls,.csv" multiple required>
+                        <small class="text-muted">Có thể chọn nhiều file Result (Ctrl+Click)</small>
                     </div>
                 </div>
             `;
@@ -186,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     showAlert(`Thiếu file D2C số ${i}`, 'danger');
                     return;
                 }
-                // Phải có file Result
+                // Phải có ít nhất 1 file Result
                 if (!result || !result.files.length) {
                     showAlert(`Thiếu file Result số ${i}`, 'danger');
                     return;
@@ -203,7 +204,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const result = document.querySelector(`input[name="result_${i}"]`);
                 const exportName = document.querySelector(`input[name="export_name_${i}"]`);
                 formData.append(`d2c_${i}`, d2c.files[0]);
-                formData.append(`result_${i}`, result.files[0]);
+                // Gửi tất cả file Result (có thể nhiều file)
+                for (let j = 0; j < result.files.length; j++) {
+                    formData.append(`result_${i}`, result.files[j]);
+                }
                 formData.append(`export_name_${i}`, exportName.value.trim());
             }
 
