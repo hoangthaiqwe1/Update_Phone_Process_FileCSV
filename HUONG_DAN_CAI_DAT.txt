@@ -1,0 +1,69 @@
+============================================================
+  HƯỚNG DẪN CÀI ĐẶT PORTAL BAU TRÊN MÁY MỚI
+============================================================
+
+BƯỚC 1: CÀI PYTHON
+-------------------
+- Tải Python 3.10+ tại: https://www.python.org/downloads/
+- Khi cài, TICK chọn "Add Python to PATH"
+- Cài xong, mở CMD gõ: python --version (phải hiện Python 3.x.x)
+
+BƯỚC 2: CÀI THƯ VIỆN
+----------------------
+Mở CMD hoặc PowerShell, chạy:
+
+    pip install flask pandas openpyxl pyzipper
+
+Nếu bị lỗi proxy, thử:
+
+    pip install flask pandas openpyxl pyzipper --trusted-host pypi.org --trusted-host files.pythonhosted.org
+
+BƯỚC 3: COPY THƯ MỤC PROJECT
+-----------------------------
+Copy toàn bộ thư mục "Update_Phone_Process_FileCSV" vào máy mới.
+VD đặt tại: D:\Tool\Update_Phone_Process_FileCSV
+
+Cấu trúc thư mục cần có:
+    Update_Phone_Process_FileCSV\
+    ├── app.py
+    ├── config.py
+    ├── database.py
+    ├── templates\       (chứa các file .html)
+    ├── static\          (chứa css, js)
+    ├── history\         (sẽ tự tạo khi chạy lần đầu)
+    ├── upload\          (sẽ tự tạo khi chạy lần đầu)
+    └── output\          (sẽ tự tạo khi chạy lần đầu)
+
+BƯỚC 4: TẠO SHORTCUT
+---------------------
+1. Click chuột phải Desktop → New → Shortcut
+
+2. Ô "Type the location of the item" gõ:
+   "C:\Program Files\Python\python.exe" "D:\Tool\Update_Phone_Process_FileCSV\app.py"
+   
+   (Thay đường dẫn Python và thư mục project cho đúng máy)
+
+3. Bấm Next → đặt tên: Portal BAU → Finish
+
+4. Click chuột phải shortcut → Properties → ô "Start in" gõ:
+   D:\Tool\Update_Phone_Process_FileCSV
+   → Bấm OK
+
+BƯỚC 5: CHẠY
+-------------
+- Double-click shortcut "Portal BAU"
+- Mở trình duyệt vào: http://localhost:5000
+- Để tắt: đóng cửa sổ CMD đen
+
+============================================================
+  LƯU Ý
+============================================================
+- Nếu Python cài ở chỗ khác (không phải C:\Program Files\Python\),
+  mở CMD gõ: where python → lấy đường dẫn đó thay vào shortcut.
+
+- Port mặc định là 5000. Nếu bị trùng port, sửa trong app.py 
+  dòng cuối: port=5000 → đổi số khác (VD: 8080)
+
+- Database history.db nằm trong thư mục history\, 
+  copy file này sang máy mới nếu muốn giữ lịch sử cũ.
+============================================================

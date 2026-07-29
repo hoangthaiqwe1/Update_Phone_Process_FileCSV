@@ -11,6 +11,7 @@
 from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import os
+import sys
 import shutil
 import zipfile
 import pyzipper
@@ -73,8 +74,15 @@ from database import (
     import_api_entries,
 )
 
-# Khởi tạo Flask app
-app = Flask(__name__)
+# Khởi tạo Flask app - hỗ trợ cả chạy bằng Python và chạy từ EXE
+if getattr(sys, 'frozen', False):
+    # Chạy từ EXE: templates/static nằm trong thư mục _internal (PyInstaller)
+    _bundle_dir = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(sys.executable)
+    app = Flask(__name__,
+                template_folder=os.path.join(_bundle_dir, 'templates'),
+                static_folder=os.path.join(_bundle_dir, 'static'))
+else:
+    app = Flask(__name__)
 # Giới hạn upload tối đa 50MB
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
@@ -1998,6 +2006,17 @@ def api_import_api_entries():
 # ============================================================
 if __name__ == "__main__":
     import os
+    import webbrowser
+    import threading
+
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+    # Khi chạy từ EXE, tắt debug để tránh lỗi reloader
+    if getattr(sys, 'frozen', False):
+        debug = False
+
+    # Chỉ mở trình duyệt 1 lần (không mở lại khi reloader restart)
+    if not debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        threading.Timer(1.5, lambda: webbrowser.open(f"http://localhost:{port}")).start()
+
     app.run(debug=debug, host="0.0.0.0", port=port)

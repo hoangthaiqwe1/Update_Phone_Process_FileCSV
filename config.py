@@ -5,9 +5,25 @@
 # ============================================================
 
 import os
+import sys
 
-# Thư mục gốc của project (nơi chứa file app.py)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def get_base_dir():
+    """
+    Trả về thư mục gốc của project.
+    - Khi chạy bằng Python thường: thư mục chứa file config.py
+    - Khi chạy từ EXE (PyInstaller): thư mục chứa file .exe
+    """
+    if getattr(sys, 'frozen', False):
+        # Đang chạy từ EXE (PyInstaller bundled)
+        return os.path.dirname(sys.executable)
+    else:
+        # Đang chạy bằng Python bình thường
+        return os.path.dirname(os.path.abspath(__file__))
+
+
+# Thư mục gốc của project
+BASE_DIR = get_base_dir()
 
 # Thư mục lưu file upload tạm thời (sẽ bị xóa mỗi lần chạy mới)
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'upload')
