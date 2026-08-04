@@ -1,0 +1,510 @@
+Date: Tue, 4 Aug 2026 09:04:47 +0000 (UTC)
+Message-ID: <1692374335.37.1785834287569@178ddb19da23>
+Subject: Exported From Confluence
+MIME-Version: 1.0
+Content-Type: multipart/related; 
+	boundary="----=_Part_36_610545644.1785834287568"
+
+------=_Part_36_610545644.1785834287568
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Content-Location: file:///C:/exported.html
+
+<html xmlns:o=3D'urn:schemas-microsoft-com:office:office'
+      xmlns:w=3D'urn:schemas-microsoft-com:office:word'
+      xmlns:v=3D'urn:schemas-microsoft-com:vml'
+      xmlns=3D'urn:w3-org-ns:HTML'>
+<head>
+    <meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8=
+">
+    <title>UBANK</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <o:OfficeDocumentSettings>
+            <o:TargetScreenSize>1024x640</o:TargetScreenSize>
+            <o:PixelsPerInch>72</o:PixelsPerInch>
+            <o:AllowPNG/>
+        </o:OfficeDocumentSettings>
+        <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>90</w:Zoom>
+            <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+    </xml>
+    <![endif]-->
+    <style>
+                <!--
+        @page Section1 {
+            size: 8.5in 11.0in;
+            margin: 1.0in;
+            mso-header-margin: .5in;
+            mso-footer-margin: .5in;
+            mso-paper-source: 0;
+        }
+
+        table {
+            border: solid 1px;
+            border-collapse: collapse;
+        }
+
+        table td, table th {
+            border: solid 1px;
+            padding: 5px;
+        }
+
+        td {
+            page-break-inside: avoid;
+        }
+
+        tr {
+            page-break-after: avoid;
+        }
+
+        div.Section1 {
+            page: Section1;
+        }
+
+        /* Confluence print stylesheet. Common to all themes for print medi=
+a */
+/* Full of !important until we improve batching for print CSS */
+
+@media print {
+    #main {
+        padding-bottom: 1em !important; /* The default padding of 6em is to=
+o much for printouts */
+    }
+
+    body {
+        font: var(--ds-font-body-small, Arial, Helvetica, FreeSans, sans-se=
+rif);
+    }
+
+    body, #full-height-container, #main, #page, #content, .has-personal-sid=
+ebar #content {
+        background: var(--ds-surface, #fff) !important;
+        color: var(--ds-text, #000) !important;
+        border: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+    }
+
+    a, a:link, a:visited, a:focus, a:hover, a:active {
+        color: var(--ds-text, #000);
+    }
+
+    #content h1,
+    #content h2,
+    #content h3,
+    #content h4,
+    #content h5,
+    #content h6 {
+        page-break-after: avoid;
+    }
+
+    pre {
+        font: var(--ds-font-code, Monaco, "Courier New", monospace);
+    }
+
+    #header,
+    .aui-header-inner,
+    #navigation,
+    #sidebar,
+    .sidebar,
+    #personal-info-sidebar,
+    .ia-fixed-sidebar,
+    .page-actions,
+    .navmenu,
+    .ajs-menu-bar,
+    .noprint,
+    .inline-control-link,
+    .inline-control-link a,
+    a.show-labels-editor,
+    .global-comment-actions,
+    .comment-actions,
+    .quick-comment-container,
+    #addcomment {
+        display: none !important;
+    }
+
+    /* CONF-28544 cannot print multiple pages in IE */
+    #splitter-content {
+        position: relative !important;
+    }
+
+    .comment .date::before {
+        content: none !important; /* remove middot for print view */
+    }
+
+    h1.pagetitle img {
+        height: auto;
+        width: auto;
+    }
+
+    .print-only {
+        display: block;
+    }
+
+    #footer {
+        position: relative !important; /* CONF-17506 Place the footer at en=
+d of the content */
+        margin: 0;
+        padding: 0;
+        background: none;
+        clear: both;
+    }
+
+    #poweredby {
+        border-top: none;
+        background: none;
+    }
+
+    #poweredby li.print-only {
+        display: list-item;
+        font-style: italic;
+    }
+
+    #poweredby li.noprint {
+        display: none;
+    }
+
+    /* no width controls in print */
+    .wiki-content .table-wrap,
+    .wiki-content p,
+    .panel .codeContent,
+    .panel .codeContent pre,
+    .image-wrap {
+        overflow: visible !important;
+    }
+
+    /* TODO - should this work? */
+    #children-section,
+    #comments-section .comment,
+    #comments-section .comment .comment-body,
+    #comments-section .comment .comment-content,
+    #comments-section .comment p {
+        page-break-inside: avoid;
+    }
+
+    #page-children a {
+        text-decoration: none;
+    }
+
+    /**
+     hide twixies
+
+     the specificity here is a hack because print styles
+     are getting loaded before the base styles. */
+    #comments-section.pageSection .section-header,
+    #comments-section.pageSection .section-title,
+    #children-section.pageSection .section-header,
+    #children-section.pageSection .section-title,
+    .children-show-hide {
+        padding-left: 0;
+        margin-left: 0;
+    }
+
+    .children-show-hide.icon {
+        display: none;
+    }
+
+    /* personal sidebar */
+    .has-personal-sidebar #content {
+        margin-right: 0px;
+    }
+
+    .has-personal-sidebar #content .pageSection {
+        margin-right: 0px;
+    }
+
+    .no-print, .no-print * {
+        display: none !important;
+    }
+}
+-->
+    </style>
+</head>
+<body>
+    <h1>UBANK</h1>
+    <div class=3D"Section1">
+        <p>
+<style>[data-colorid=3Djaqruy6hfk]{color:#4c9aff} html[data-color-mode=3Dda=
+rk] [data-colorid=3Djaqruy6hfk]{color:#004eb3}</style></p>
+<div class=3D"table-wrap">
+<table data-table-width=3D"1800" data-layout=3D"default" data-local-id=3D"9=
+504cb2c-17f0-480f-848f-bd958fc03d12" data-table-display-mode=3D"default" cl=
+ass=3D"confluenceTable">
+<tbody>
+<tr>
+<td class=3D"confluenceTd">
+<p><strong>C=C3=A1c b=C6=B0=E1=BB=9Bc gi=E1=BA=A3i quy=E1=BA=BFt</strong></=
+p></td>
+<td class=3D"confluenceTd">
+<p><strong>C=C3=A1ch gi=E1=BA=A3i quy=E1=BA=BFt</strong></p></td>
+<td class=3D"confluenceTd">
+<p><strong>V=C4=83n m=E1=BA=ABu reply</strong></p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p><strong>B=C6=B0=E1=BB=9Bc 1</strong>: c=E1=BA=A7m appid check loan=3D&gt=
+; TopUp v=C3=A0 stage =E1=BB=9F CASA</p></td>
+<td rowspan=3D"3" class=3D"confluenceTd">
+<p>Chuy=E1=BB=83n status th=C3=A0nh <strong><span data-colorid=3D"jaqruy6hf=
+k">Awaiting End-user Response </span></strong>v=C3=A0 tr=E1=BA=A3 l=E1=BB=
+=9Di user</p></td>
+<td rowspan=3D"3" class=3D"confluenceTd">
+<p>Dear anh/ch=E1=BB=8B,</p>
+<p>Tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p KH b=C3=A1o =C4=91=C3=A3 ra qu=E1=BA=A7y=
+ c=E1=BA=ADp nh=E1=BA=ADt th=C3=A0nh c=C3=B4ng, VPB s=E1=BA=BD c=E1=BA=A7n =
+th=E1=BB=9Di gian x=E1=BB=AD l=C3=BD m=E1=BB=9F t=C3=A0i kho=E1=BA=A3n. Vui=
+ l=C3=B2ng b=C3=A1o KH v=C3=A0o app th=E1=BB=AD l=E1=BA=A1i sau v=C3=A0i ng=
+=C3=A0y =C4=91=E1=BB=83 ki=E1=BB=83m tra, n=E1=BA=BFu m=E1=BB=9F th=C3=A0nh=
+ c=C3=B4ng h=E1=BB=87 th=E1=BB=91ng s=E1=BA=BD t=E1=BB=B1 chuy=E1=BB=83n b=
+=C6=B0=E1=BB=9Bc.</p>
+<p>&nbsp;</p>
+<p>Tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p v=E1=BA=ABn ch=C6=B0a m=E1=BB=9F =C4=91=
+=C6=B0=E1=BB=A3c, A/c vui l=C3=B2ng h=C6=B0=E1=BB=9Bng d=E1=BA=ABn KH li=C3=
+=AAn h=E1=BB=87 CS cung c=E1=BA=A5p H=C3=ACnh =E1=BA=A3nh sms x=C3=A1c nh=
+=E1=BA=ADn t=E1=BB=AB VPB, phone, NID =C4=91=E1=BB=83 IT h=E1=BB=97 tr=E1=
+=BB=A3 ki=E1=BB=83m tra.</p>
+<p>&nbsp;</p>
+<p>Ticket s=E1=BA=BD t=E1=BB=B1 =C4=91=C3=B3ng sau 24h l=C3=A0m vi=E1=BB=87=
+c n=E1=BA=BFu kh=C3=B4ng nh=E1=BA=ADn =C4=91=C6=B0=E1=BB=A3c ph=E1=BA=A3n h=
+=E1=BB=93i t=E1=BB=AB A/C.</p>
+<p>C=E1=BA=A3m =C6=A1n anh/ch=E1=BB=8B.</p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p><strong>B=C6=B0=E1=BB=9Bc 2</strong>: b=E1=BB=8F NID v=C3=B4 grafana =3D=
+&gt; check API regist-info</p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p><strong>B=C6=B0=E1=BB=9Bc 3</strong>: coi log m=E1=BB=9Bi nh=E1=BA=A5t t=
+r=C3=AAn grafana, n=E1=BA=BFu l=E1=BB=97i OPEN_CASA_...</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class=3D"table-wrap">
+<table data-table-width=3D"1800" data-layout=3D"default" data-local-id=3D"c=
+5957f98-3af2-4967-ad7a-7811f545b662" class=3D"confluenceTable">
+<colgroup>
+<col style=3D"width: 600.0px;">
+<col style=3D"width: 490.0px;">
+<col style=3D"width: 708.0px;">
+<col style=3D"width: 490.0px;">
+<col style=3D"width: 708.0px;">
+</colgroup>
+<tbody>
+<tr>
+<th data-highlight-colour=3D"var(--ds-background-accent-gray-subtlest, #F4F=
+5F7)" class=3D"confluenceTh">
+<p><strong>Tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p</strong></p></th>
+<th data-highlight-colour=3D"var(--ds-background-accent-gray-subtlest, #F4F=
+5F7)" class=3D"confluenceTh">
+<p><strong>C=C3=A1ch gi=E1=BA=A3i quy=E1=BA=BFt</strong></p></th>
+<th data-highlight-colour=3D"var(--ds-background-accent-gray-subtlest, #F4F=
+5F7)" class=3D"confluenceTh">
+<p><strong>V=C4=83n m=E1=BA=ABu reply</strong></p></th>
+<th class=3D"confluenceTh">
+<p></p></th>
+<th class=3D"confluenceTh">
+<p></p></th>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p>m=C3=A3 l=E1=BB=97i =C4=91=E1=BA=B7c bi=E1=BB=87t:</p>
+<p>OPEN_CASA_PENDING_ONBOARDING (l=E1=BB=97i tr=C3=AAn portal)</p></td>
+<td class=3D"confluenceTd">
+<p>Resolve</p></td>
+<td class=3D"confluenceTd">
+<p>Dear anh/ch=E1=BB=8B,</p>
+<p>Vui l=C3=B2ng b=C3=A1o KH ra qu=E1=BA=A7y VPB =C4=91=E1=BB=83 c=E1=BA=AD=
+p nh=E1=BA=ADt th=C3=B4ng tin, sau =C4=91=C3=B3 A/C vui l=C3=B2ng b=C3=A1o =
+KH v=C3=A0o app th=E1=BB=AD l=E1=BA=A1i sau =C4=91=C3=B3 v=C3=A0i ng=C3=A0y=
+ =C4=91=E1=BB=83 ki=E1=BB=83m tra v=C3=AC VPB s=E1=BA=BD c=E1=BA=A7n th=E1=
+=BB=9Di gian x=E1=BB=AD l=C3=BD. N=E1=BA=BFu m=E1=BB=9F =C4=91=C6=B0=E1=BB=
+=A3c UBank, h=E1=BB=87 th=E1=BB=91ng s=E1=BA=BD t=E1=BB=B1 =C4=91=E1=BB=99n=
+g chuy=E1=BB=83n b=C6=B0=E1=BB=9Bc.</p>
+<p>Tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p sau khi ra qu=E1=BA=A7y v=E1=BA=ABn kh=
+=C3=B4ng m=E1=BB=9F =C4=91=C6=B0=E1=BB=A3c UBank, IT kh=C3=B4ng th=E1=BB=83=
+ h=E1=BB=97 tr=E1=BB=A3 th=C3=AAm v=C3=AC rule v=C3=A0 vi=E1=BB=87c x=E1=BB=
+=AD l=C3=BD m=E1=BB=9F t=C3=A0i kho=E1=BA=A3n n=E1=BA=B1m t=E1=BA=A1i =C4=
+=91=E1=BA=A7u VPB. A/C vui l=C3=B2ng th=C3=B4ng tin =C4=91=E1=BA=BFn KH.</p=
+>
+<p>C=E1=BA=A3m =C6=A1n anh/ch=E1=BB=8B.</p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p>c=C3=A1c m=C3=A3 l=E1=BB=97i c=E1=BA=A7n ra qu=E1=BA=A7y:</p>
+<p>OPEN_CASA_PENDING_MULTIPLE_CIF</p>
+<p>OPEN_CASA_PENDING_NOTMATCH_PHONE</p>
+<p>OPEN_CASA_PENDING_CIF_NO_NAME</p>
+<p>OPEN_CASA_PENDING_BYPHONE</p>
+<p>OPEN_CASA_PENDING_OCB</p></td>
+<td class=3D"confluenceTd">
+<p>Resolve=E2=80=A6</p>
+<p>(note: c=C3=B3 2 tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p =C4=91=E1=BB=83 rep - v=
+=E1=BB=9Bi sale v=C3=A0 v=E1=BB=9Bi CS)</p></td>
+<td class=3D"confluenceTd">
+<p>Dear anh/ch=E1=BB=8B,</p>
+<p>Vui l=C3=B2ng b=C3=A1o KH ra qu=E1=BA=A7y VPB =C4=91=E1=BB=83 c=E1=BA=AD=
+p nh=E1=BA=ADt th=C3=B4ng tin, sau =C4=91=C3=B3 A/C vui l=C3=B2ng b=C3=A1o =
+KH v=C3=A0o app th=E1=BB=AD l=E1=BA=A1i sau =C4=91=C3=B3 v=C3=A0i ng=C3=A0y=
+ =C4=91=E1=BB=83 ki=E1=BB=83m tra v=C3=AC VPB s=E1=BA=BD c=E1=BA=A7n th=E1=
+=BB=9Di gian x=E1=BB=AD l=C3=BD. N=E1=BA=BFu m=E1=BB=9F =C4=91=C6=B0=E1=BB=
+=A3c UBank, h=E1=BB=87 th=E1=BB=91ng s=E1=BA=BD t=E1=BB=B1 =C4=91=E1=BB=99n=
+g chuy=E1=BB=83n b=C6=B0=E1=BB=9Bc.</p>
+<ol start=3D"1">
+<li>
+<p><strong>V=E1=BB=9Bi CS</strong>: Tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p KH b=C3=
+=A1o =C4=91=C3=A3 ra qu=E1=BA=A7y c=E1=BA=ADp nh=E1=BA=ADt th=C3=A0nh c=C3=
+=B4ng, vui l=C3=B2ng b=E1=BB=95 sung h=C3=ACnh =E1=BA=A3nh SMS c=E1=BA=ADp =
+nh=E1=BA=ADt th=C3=A0nh c=C3=B4ng t=E1=BB=AB ph=C3=ADa VPBank =C4=91=E1=BB=
+=83 IT c=C3=B3 c=C6=A1 s=E1=BB=9F h=E1=BB=97 tr=E1=BB=A3 ti=E1=BA=BFp</p></=
+li>
+<li>
+<p><strong>V=E1=BB=9Bi Sale</strong>: Tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p KH b=
+=C3=A1o =C4=91=C3=A3 ra qu=E1=BA=A7y c=E1=BA=ADp nh=E1=BA=ADt th=C3=A0nh c=
+=C3=B4ng, vui l=C3=B2ng h=C6=B0=E1=BB=9Bng d=E1=BA=ABn kh=C3=A1ch h=C3=A0ng=
+ li=C3=AAn h=E1=BB=87 CS =C4=91=E1=BB=83 b=E1=BB=95 sung h=C3=ACnh =E1=BA=
+=A3nh SMS c=E1=BA=ADp nh=E1=BA=ADt th=C3=A0nh c=C3=B4ng t=E1=BB=AB ph=C3=AD=
+a VPBank =C4=91=E1=BB=83 IT c=C3=B3 c=C6=A1 s=E1=BB=9F h=E1=BB=97 tr=E1=BB=
+=A3 ti=E1=BA=BFp</p></li>
+</ol>
+<p>C=E1=BA=A3m =C6=A1n anh/ch=E1=BB=8B.</p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p>c=C3=A1c m=C3=A3 l=E1=BB=97i c=E1=BA=A7n stop kh=C3=A1ch h=C3=A0ng:</p>
+<p>OPEN_CASA_FAILED_TRUSTING_SOCIAL</p>
+<p>OPEN_CASA_FAILED_AML_CHECK</p>
+<p>OPEN_CASA_FAILED_NOTMATCH_NAME</p>
+<p>OPEN_CASA_FAILED_FRAUD</p>
+<p>OPEN_CASA_FAILED_OCB_ACCOUNT_ACTIVE</p>
+<p>OPEN_CASA_FAILED_CIF_US</p>
+<p></p>
+<p></p>
+<p></p></td>
+<td class=3D"confluenceTd">
+<p>Resolve</p></td>
+<td class=3D"confluenceTd">
+<p>Dear anh/ch=E1=BB=8B,</p>
+<p>VPBank hi=E1=BB=87n t=E1=BA=A1i ch=C6=B0a h=E1=BB=97 tr=E1=BB=A3 m=E1=BB=
+=9F UBank cho kh=C3=A1ch h=C3=A0ng n=C3=A0y (Fail trusting social, AML, bla=
+cklist =E2=80=A6)</p>
+<p>Vui l=C3=B2ng th=C3=B4ng tin =C4=91=E1=BA=BFn KH, IT kh=C3=B4ng th=E1=BB=
+=83 h=E1=BB=97 tr=E1=BB=A3 th=C3=AAm v=C3=AC vi=E1=BB=87c x=E1=BB=AD l=C3=
+=BD n=E1=BA=B1m =E1=BB=9F =C4=91=E1=BA=A7u VPBank.</p>
+<p>C=E1=BA=A3m =C6=A1n anh/ch=E1=BB=8B.</p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p>OPEN_CASA_TIMEOUT</p>
+<p></p></td>
+<td class=3D"confluenceTd">
+<p>=C4=91=C3=A3 deploy fix ng=C3=A0y 10/09/2025 , rule retry 6 l=E1=BA=A7n =
+trong ng=C3=A0y t=E1=BB=B1 =C4=91=E1=BB=99ng , v=C3=A0 T+1 l=C3=BAc 9h (dev=
+ ch=E1=BA=A1y tay) =E2=86=92 n=E1=BA=BFu dev ch=E1=BA=A1y tay v=E1=BA=ABn l=
+=E1=BB=97i b=C3=A1o <a class=3D"confluence-userlink user-mention current-us=
+er-mention" data-account-id=3D"712020:9aa7b036-e7d4-4edf-ba0f-5df34470b4ac"=
+ href=3D"https://fecredit.atlassian.net/wiki/people/712020:9aa7b036-e7d4-4e=
+df-ba0f-5df34470b4ac?ref=3Dconfluence" target=3D"_blank" data-linked-resour=
+ce-id=3D"923206440" data-linked-resource-version=3D"1" data-linked-resource=
+-type=3D"userinfo" data-base-url=3D"https://fecredit.atlassian.net/wiki">Th=
+ai Dang Le Hoang</a> g=E1=BB=ADi mail vpbank check v=C3=AC sao kh=C3=B4ng =
+=C4=91=C6=B0=E1=BB=A3c</p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p>Kh=C3=A1ch h=C3=A0ng confirm offer tr=C3=AAn FEONL 1.0</p></td>
+<td class=3D"confluenceTd">
+<p>Resolve Ticket</p></td>
+<td class=3D"confluenceTd">
+<p>Dear anh/ch=E1=BB=8B,</p>
+<p>Tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p KH =C4=91=C3=A3 confirm offer tr=C3=AAn =
+FE1 s=E1=BA=BD kh=C3=B4ng confirm offer ti=E1=BA=BFp tr=C3=AAn FE2 =C4=91=
+=C6=B0=E1=BB=A3c, =C4=91=C3=A2y l=C3=A0 lu=E1=BB=93ng c=E1=BB=A7a s=E1=BA=
+=A3n ph=E1=BA=A9m, IT kh=C3=B4ng th=E1=BB=83 h=E1=BB=97 tr=E1=BB=A3 th=C3=
+=AAm. A/C vui l=C3=B2ng th=C3=B4ng tin =C4=91=E1=BA=BFn KH.</p>
+<p>C=E1=BA=A3m =C6=A1n anh/ch=E1=BB=8B.</p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p>
+<del>Tr=C6=B0=E1=BB=9Dng h=E1=BB=A3p timeout ( 21/10/2024)</del></p>
+<p></p></td>
+<td class=3D"confluenceTd">
+<p>
+<del>Resolve Ticket</del></p></td>
+<td class=3D"confluenceTd">
+<p>
+<del>Dear anh/ch=E1=BB=8B,</del></p>
+<p>
+<del>&nbsp;</del></p>
+<p>
+<del>VPB t=E1=BA=A1m th=E1=BB=9Di ch=C6=B0a h=E1=BB=97 tr=E1=BB=A3 m=E1=BB=
+=9F UBank cho KH n=C3=A0y. A/C vui l=C3=B2ng th=C3=B4ng tin =C4=91=E1=BA=BF=
+n KH.</del></p>
+<p>
+<del>Vi=E1=BB=87c x=E1=BB=AD l=C3=BD m=E1=BB=9F t=C3=A0i kho=E1=BA=A3n n=E1=
+=BA=B1m =E1=BB=9F =C4=91=E1=BA=A7u VPB, IT kh=C3=B4ng th=E1=BB=83 h=E1=BB=
+=97 tr=E1=BB=A3 th=C3=AAm.</del></p>
+<p>
+<del>&nbsp;</del></p>
+<p>
+<del>C=E1=BA=A3m =C6=A1n anh/ch=E1=BB=8B.</del></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+</tr>
+<tr>
+<td class=3D"confluenceTd">
+<p>OPEN_CASA_PENDING_MULTIPLE_CIF</p></td>
+<td class=3D"confluenceTd">
+<p>OPEN_CASA_PENDING_MULTIPLE_CIF</p></td>
+<td class=3D"confluenceTd">
+<p>Case multiple CIF (th=C3=B4ng tin b=E1=BB=8B tr=C3=B9ng CIF)<br>
+&nbsp;-&gt; KH c=E1=BA=A7n ra qu=E1=BA=A7y th=E1=BB=B1c hi=E1=BB=87n thao t=
+=C3=A1c =C4=91=C3=B3ng CIF -&gt; C=E1=BA=A7n instruction r=C3=B5 r=C3=A0ng =
+tr=C3=AAn UI c=E1=BB=A7a KH</p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+<td class=3D"confluenceTd">
+<p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p></p>
+    </div>
+</body>
+</html>
+------=_Part_36_610545644.1785834287568--

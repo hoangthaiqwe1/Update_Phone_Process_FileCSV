@@ -1,0 +1,483 @@
+<!-- ============================================================
+     TRANG QUẢN LÝ TÀI LIỆU TEAM
+     Chức năng: Thêm / Sửa / Xóa / Tìm kiếm / Import / Export
+     ============================================================ -->
+{% extends "base.html" %}
+
+{% block header_icon %}folder2{% endblock %}
+{% block header_title %}Quản lý Tài liệu Team{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- CỘT TRÁI - Bộ lọc + Thêm mới -->
+    <div class="col-lg-4">
+        <!-- Card Thêm / Sửa document -->
+        <div class="card card-custom">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span id="formTitle"><i class="bi bi-plus-circle me-2"></i>Thêm tài liệu</span>
+                <button class="btn btn-sm btn-outline-secondary" id="btnResetForm" style="display:none">
+                    <i class="bi bi-x-lg"></i> Hủy sửa
+                </button>
+            </div>
+            <div class="card-body">
+                <input type="hidden" id="editDocId" value="">
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Tiêu đề *</label>
+                    <input type="text" class="form-control form-control-sm" id="docTitle" placeholder="Tên tài liệu">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Danh mục</label>
+                    <input type="text" class="form-control form-control-sm" id="docCategory" placeholder="VD: Quy trình, Hướng dẫn, SLA...">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Nội dung / Ghi chú</label>
+                    <textarea class="form-control form-control-sm" id="docContent" rows="4" placeholder="Mô tả ngắn hoặc nội dung chính..."></textarea>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Tags</label>
+                    <input type="text" class="form-control form-control-sm" id="docTags" placeholder="tag1, tag2, tag3">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Người tạo</label>
+                    <input type="text" class="form-control form-control-sm" id="docCreatedBy" placeholder="Tên bạn">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">File đính kèm</label>
+                    <input type="file" class="form-control form-control-sm" id="docFile"
+                           accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" multiple>
+                    <small class="text-muted">Hỗ trợ: Excel, CSV, PDF, Word, TXT, Ảnh (chọn nhiều file bằng Ctrl+Click)</small>
+                </div>
+                <button class="btn btn-primary w-100" id="btnSaveDoc">
+                    <i class="bi bi-check-lg me-1"></i>Lưu tài liệu
+                </button>
+            </div>
+        </div>
+
+        <!-- Import / Export -->
+        <div class="card card-custom mt-3">
+            <div class="card-header"><i class="bi bi-arrow-left-right me-2"></i>Import / Export</div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/api/documents/export" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-download me-1"></i>Export tất cả (JSON)
+                    </a>
+                    <div>
+                        <input type="file" id="importFile" accept=".json" style="display:none">
+                        <button class="btn btn-outline-primary btn-sm w-100" id="btnImport">
+                            <i class="bi bi-upload me-1"></i>Import từ JSON
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CỘT PHẢI - Danh sách tài liệu -->
+    <div class="col-lg-8">
+        <div class="card card-custom">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-ul me-2"></i>Danh sách tài liệu</span>
+                <span class="badge bg-secondary" id="docCount">0</span>
+            </div>
+            <div class="card-body">
+                <!-- Search + Filter -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control form-control-sm" id="searchInput"
+                               placeholder="Tìm kiếm tiêu đề, nội dung, tag...">
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" id="filterCategory">
+                            <option value="">-- Tất cả danh mục --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-sm btn-outline-secondary w-100" id="btnSearch">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bảng dữ liệu -->
+                <div class="table-responsive" style="max-height:600px;overflow-y:auto">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tiêu đề</th>
+                                <th>Danh mục</th>
+                                <th>File</th>
+                                <th>Người tạo</th>
+                                <th>Ngày tạo</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="docTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">Đang tải...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Phân trang -->
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <small class="text-muted" id="pageInfo">Trang 1</small>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" id="btnPrev" disabled>
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btnNext">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Xem chi tiết -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewModalTitle">Chi tiết tài liệu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="viewModalBody"></div>
+            <div class="modal-footer">
+                <a href="#" id="viewDownloadBtn" class="btn btn-sm btn-outline-success" style="display:none">
+                    <i class="bi bi-download me-1"></i>Download file
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentPage = 1;
+    const perPage = 50;
+
+    // Load documents
+    function loadDocuments() {
+        const search = document.getElementById('searchInput').value.trim();
+        const category = document.getElementById('filterCategory').value;
+        const url = `/api/documents?page=${currentPage}&per_page=${perPage}&search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}`;
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+
+                // Update categories dropdown
+                const filterCat = document.getElementById('filterCategory');
+                const currentVal = filterCat.value;
+                filterCat.innerHTML = '<option value="">-- Tất cả danh mục --</option>';
+                data.categories.forEach(c => {
+                    filterCat.innerHTML += `<option value="${c}" ${c === currentVal ? 'selected' : ''}>${c}</option>`;
+                });
+
+                // Update count
+                document.getElementById('docCount').textContent = data.total;
+
+                // Render table
+                const tbody = document.getElementById('docTableBody');
+                if (data.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Không có tài liệu nào</td></tr>';
+                } else {
+                    tbody.innerHTML = data.data.map(doc => `
+                        <tr>
+                            <td>
+                                <strong>${doc.title}</strong>
+                                ${doc.tags ? `<br><small class="text-muted">${doc.tags}</small>` : ''}
+                            </td>
+                            <td><span class="badge bg-info text-dark">${doc.category || '-'}</span></td>
+                            <td>
+                                ${doc.file_name
+                                    ? `<a href="/api/documents/${doc.id}/download" class="text-decoration-none" title="${doc.file_name}">
+                                        <i class="bi bi-file-earmark-${getFileIcon(doc.file_type)}"></i> ${truncate(doc.file_name, 20)}
+                                       </a>`
+                                    : '<span class="text-muted">-</span>'}
+                            </td>
+                            <td>${doc.created_by || '-'}</td>
+                            <td><small>${doc.created_at || '-'}</small></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary btn-view" data-id="${doc.id}" title="Xem">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning btn-edit" data-id="${doc.id}" title="Sửa">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger btn-delete" data-id="${doc.id}" title="Xóa">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Pagination
+                const totalPages = Math.ceil(data.total / perPage);
+                document.getElementById('pageInfo').textContent = `Trang ${currentPage} / ${totalPages || 1} (${data.total} tài liệu)`;
+                document.getElementById('btnPrev').disabled = currentPage <= 1;
+                document.getElementById('btnNext').disabled = currentPage >= totalPages;
+
+                // Bind events
+                bindTableEvents();
+            });
+    }
+
+    function getFileIcon(type) {
+        if (!type) return 'text';
+        if (['xlsx', 'xls', 'csv'].includes(type)) return 'excel';
+        if (type === 'pdf') return 'pdf';
+        if (['doc', 'docx'].includes(type)) return 'word';
+        if (['png', 'jpg', 'jpeg'].includes(type)) return 'image';
+        return 'text';
+    }
+
+    function truncate(str, len) {
+        return str.length > len ? str.substring(0, len) + '...' : str;
+    }
+
+    function bindTableEvents() {
+        // View
+        document.querySelectorAll('.btn-view').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                fetch(`/api/documents/${id}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.success) return;
+                        const doc = data.data;
+                        document.getElementById('viewModalTitle').textContent = doc.title;
+
+                        // Info section
+                        let infoHtml = `
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <small><strong>Danh mục:</strong> ${doc.category || '-'}</small><br>
+                                    <small><strong>Tags:</strong> ${doc.tags || '-'}</small><br>
+                                    <small><strong>Người tạo:</strong> ${doc.created_by || '-'}</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small><strong>Ngày tạo:</strong> ${doc.created_at || '-'}</small><br>
+                                    <small><strong>Cập nhật:</strong> ${doc.updated_at || '-'}</small><br>
+                                    <small><strong>File:</strong> ${doc.file_name || 'Không có'}</small>
+                                </div>
+                            </div>
+                        `;
+
+                        // Content section
+                        if (doc.content) {
+                            infoHtml += `<div class="mb-3 p-2 bg-light rounded" style="white-space:pre-wrap;max-height:200px;overflow-y:auto">${doc.content}</div>`;
+                        }
+
+                        // Download button
+                        const dlBtn = document.getElementById('viewDownloadBtn');
+                        if (doc.file_name) {
+                            dlBtn.href = `/api/documents/${doc.id}/download`;
+                            dlBtn.style.display = 'inline-block';
+                        } else {
+                            dlBtn.style.display = 'none';
+                        }
+
+                        // File preview
+                        if (doc.file_path && doc.file_type) {
+                            const ft = doc.file_type.toLowerCase();
+                            if (ft === 'pdf') {
+                                infoHtml += `<iframe src="/api/documents/${doc.id}/preview" style="width:100%;height:500px;border:1px solid #dee2e6;border-radius:6px"></iframe>`;
+                                document.getElementById('viewModalBody').innerHTML = infoHtml;
+                                new bootstrap.Modal(document.getElementById('viewModal')).show();
+                            } else if (['png','jpg','jpeg','gif','webp'].includes(ft)) {
+                                infoHtml += `<div class="text-center"><img src="/api/documents/${doc.id}/preview" style="max-width:100%;max-height:500px;border-radius:6px"></div>`;
+                                document.getElementById('viewModalBody').innerHTML = infoHtml;
+                                new bootstrap.Modal(document.getElementById('viewModal')).show();
+                            } else if (['xlsx','xls','csv'].includes(ft)) {
+                                // Fetch table data
+                                fetch(`/api/documents/${doc.id}/preview`)
+                                    .then(r => r.json())
+                                    .then(preview => {
+                                        if (preview.type === 'table') {
+                                            let tableHtml = '<div class="table-responsive" style="max-height:400px;overflow:auto"><table class="table table-sm table-bordered table-striped"><thead class="table-dark"><tr>';
+                                            preview.headers.forEach(h => tableHtml += `<th style="white-space:nowrap">${h}</th>`);
+                                            tableHtml += '</tr></thead><tbody>';
+                                            preview.rows.forEach(row => {
+                                                tableHtml += '<tr>';
+                                                row.forEach(cell => tableHtml += `<td style="white-space:nowrap">${cell || ''}</td>`);
+                                                tableHtml += '</tr>';
+                                            });
+                                            tableHtml += `</tbody></table></div><small class="text-muted">Hiển thị ${preview.total_rows} dòng (tối đa 200)</small>`;
+                                            infoHtml += tableHtml;
+                                        } else {
+                                            infoHtml += `<div class="alert alert-warning">${preview.message || 'Không thể preview'}</div>`;
+                                        }
+                                        document.getElementById('viewModalBody').innerHTML = infoHtml;
+                                        new bootstrap.Modal(document.getElementById('viewModal')).show();
+                                    });
+                                return; // Don't show modal yet, wait for fetch
+                            } else if (ft === 'txt') {
+                                fetch(`/api/documents/${doc.id}/preview`)
+                                    .then(r => r.json())
+                                    .then(preview => {
+                                        if (preview.type === 'text') {
+                                            infoHtml += `<pre class="bg-light p-3 rounded" style="max-height:400px;overflow:auto">${preview.content}</pre>`;
+                                        } else {
+                                            infoHtml += `<div class="alert alert-warning">${preview.message || 'Không thể preview'}</div>`;
+                                        }
+                                        document.getElementById('viewModalBody').innerHTML = infoHtml;
+                                        new bootstrap.Modal(document.getElementById('viewModal')).show();
+                                    });
+                                return;
+                            } else {
+                                infoHtml += `<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Không hỗ trợ preview file .${ft}. Vui lòng download để xem.</div>`;
+                                document.getElementById('viewModalBody').innerHTML = infoHtml;
+                                new bootstrap.Modal(document.getElementById('viewModal')).show();
+                            }
+                        } else {
+                            document.getElementById('viewModalBody').innerHTML = infoHtml;
+                            new bootstrap.Modal(document.getElementById('viewModal')).show();
+                        }
+                    });
+            });
+        });
+
+        // Edit
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                fetch(`/api/documents/${id}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.success) return;
+                        const doc = data.data;
+                        document.getElementById('editDocId').value = doc.id;
+                        document.getElementById('docTitle').value = doc.title;
+                        document.getElementById('docCategory').value = doc.category;
+                        document.getElementById('docContent').value = doc.content;
+                        document.getElementById('docTags').value = doc.tags;
+                        document.getElementById('docCreatedBy').value = doc.created_by;
+                        document.getElementById('formTitle').innerHTML = '<i class="bi bi-pencil me-2"></i>Sửa tài liệu';
+                        document.getElementById('btnResetForm').style.display = 'inline-block';
+                        document.getElementById('btnSaveDoc').innerHTML = '<i class="bi bi-check-lg me-1"></i>Cập nhật';
+                        // Scroll to form
+                        document.getElementById('docTitle').focus();
+                    });
+            });
+        });
+
+        // Delete
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (!confirm('Xác nhận xóa tài liệu này?')) return;
+                const id = this.dataset.id;
+                fetch(`/api/documents/${id}`, { method: 'DELETE' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) loadDocuments();
+                        else alert(data.error);
+                    });
+            });
+        });
+    }
+
+    // Save document (Add / Update)
+    document.getElementById('btnSaveDoc').addEventListener('click', function() {
+        const docId = document.getElementById('editDocId').value;
+        const formData = new FormData();
+        formData.append('title', document.getElementById('docTitle').value.trim());
+        formData.append('category', document.getElementById('docCategory').value.trim());
+        formData.append('content', document.getElementById('docContent').value.trim());
+        formData.append('tags', document.getElementById('docTags').value.trim());
+        formData.append('created_by', document.getElementById('docCreatedBy').value.trim());
+
+        const fileInput = document.getElementById('docFile');
+        if (fileInput.files.length > 0) {
+            for (let i = 0; i < fileInput.files.length; i++) {
+                formData.append('files', fileInput.files[i]);
+            }
+        }
+
+        let url = '/api/documents';
+        let method = 'POST';
+        if (docId) {
+            url = `/api/documents/${docId}`;
+            method = 'PUT';
+        }
+
+        fetch(url, { method, body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    resetForm();
+                    loadDocuments();
+                } else {
+                    alert(data.error);
+                }
+            });
+    });
+
+    // Reset form
+    function resetForm() {
+        document.getElementById('editDocId').value = '';
+        document.getElementById('docTitle').value = '';
+        document.getElementById('docCategory').value = '';
+        document.getElementById('docContent').value = '';
+        document.getElementById('docTags').value = '';
+        document.getElementById('docCreatedBy').value = '';
+        document.getElementById('docFile').value = '';
+        document.getElementById('formTitle').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Thêm tài liệu';
+        document.getElementById('btnResetForm').style.display = 'none';
+        document.getElementById('btnSaveDoc').innerHTML = '<i class="bi bi-check-lg me-1"></i>Lưu tài liệu';
+    }
+
+    document.getElementById('btnResetForm').addEventListener('click', resetForm);
+
+    // Search
+    document.getElementById('btnSearch').addEventListener('click', function() {
+        currentPage = 1;
+        loadDocuments();
+    });
+    document.getElementById('searchInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { currentPage = 1; loadDocuments(); }
+    });
+    document.getElementById('filterCategory').addEventListener('change', function() {
+        currentPage = 1;
+        loadDocuments();
+    });
+
+    // Pagination
+    document.getElementById('btnPrev').addEventListener('click', function() {
+        if (currentPage > 1) { currentPage--; loadDocuments(); }
+    });
+    document.getElementById('btnNext').addEventListener('click', function() {
+        currentPage++;
+        loadDocuments();
+    });
+
+    // Import
+    document.getElementById('btnImport').addEventListener('click', function() {
+        document.getElementById('importFile').click();
+    });
+    document.getElementById('importFile').addEventListener('change', function() {
+        if (!this.files.length) return;
+        const formData = new FormData();
+        formData.append('file', this.files[0]);
+        fetch('/api/documents/import', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message || data.error);
+                if (data.success) loadDocuments();
+            });
+        this.value = '';
+    });
+
+    // Initial load
+    loadDocuments();
+});
+</script>
+{% endblock %}

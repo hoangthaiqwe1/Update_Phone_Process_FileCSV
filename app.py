@@ -72,6 +72,15 @@ from database import (
     update_api_sort_order,
     export_all_api_entries,
     import_api_entries,
+    init_documents_db,
+    get_all_documents,
+    get_all_document_categories,
+    add_document,
+    get_document_by_id,
+    update_document,
+    delete_document,
+    export_all_documents,
+    import_documents,
 )
 
 # Khởi tạo Flask app - hỗ trợ cả chạy bằng Python và chạy từ EXE
@@ -107,6 +116,7 @@ for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER, HISTORY_FOLDER]:
 init_db()
 init_responses_db()
 init_api_catalog_db()
+init_documents_db()
 
 
 # ============================================================
@@ -1997,6 +2007,244 @@ def api_import_api_entries():
 
     else:
         return jsonify({"success": False, "error": "Chỉ hỗ trợ file .zip hoặc .json"}), 400
+
+
+# ============================================================
+# QUẢN LÝ DOCUMENT TEAM
+# CRUD: Thêm / Sửa / Xóa / Tìm kiếm / Import / Export tài liệu
+# ============================================================
+
+# Thư mục lưu file document upload
+DOCUMENTS_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads', 'documents')
+os.makedirs(DOCUMENTS_FOLDER, exist_ok=True)
+
+ALLOWED_DOC_EXTENSIONS = {'xlsx', 'xls', 'csv', 'pdf', 'doc', 'docx', 'txt', 'png', 'jpg', 'jpeg'}
+
+
+def allowed_doc_file(filename):
+    """Kiểm tra file document có đúng định dạng không."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOC_EXTENSIONS
+
+
+@app.route("/documents")
+def documents_page():
+    """Trang quản lý tài liệu team."""
+    return render_template("documents.html")
+
+
+@app.route("/api/documents", methods=["GET"])
+def api_get_documents():
+    """Lấy danh sách documents với filter, search, phân trang."""
+    category = request.args.get("category", "")
+    search = request.args.get("search", "")
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 50))
+    data, total = get_all_documents(category, search, page, per_page)
+    categories = get_all_document_categories()
+    return jsonify({"success": True, "data": data, "total": total, "categories": categories, "page": page, "per_page": per_page})
+
+
+@app.route("/api/documents", methods=["POST"])
+def api_add_document():
+    """Thêm document mới (hỗ trợ upload nhiều file cùng lúc)."""
+    title = request.form.get("title", "").strip()
+    category = request.form.get("category", "").strip()
+    content = request.form.get("content", "").strip()
+    tags = request.form.get("tags", "").strip()
+    created_by = request.form.get("created_by", "").strip()
+
+    if not title:
+        return jsonify({"success": False, "error": "Thiếu tiêu đề document"}), 400
+
+    # Lấy tất cả file upload (nhiều file)
+    files = request.files.getlist("files")
+    valid_files = [f for f in files if f.filename and allowed_doc_file(f.filename)]
+
+    if not valid_files:
+        # Không có file → tạo 1 document chỉ có text
+        new_id = add_document(title, category, content, "", "", "", tags, created_by)
+        return jsonify({"success": True, "id": new_id, "message": "Đã thêm tài liệu (không có file)"})
+
+    # Có file → tạo 1 document cho mỗi file
+    created_ids = []
+    for idx, file in enumerate(valid_files):
+        import uuid
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        safe_name = f"{uuid.uuid4().hex}.{ext}"
+        file.save(os.path.join(DOCUMENTS_FOLDER, safe_name))
+        file_path = f"uploads/documents/{safe_name}"
+        file_name = file.filename
+        file_type = ext
+
+        # Nếu chỉ 1 file → dùng title gốc, nếu nhiều file → thêm tên file vào title
+        doc_title = title if len(valid_files) == 1 else f"{title} - {file.filename}"
+
+        new_id = add_document(doc_title, category, content, file_path, file_name, file_type, tags, created_by)
+        created_ids.append(new_id)
+
+    msg = f"Đã thêm {len(created_ids)} tài liệu" if len(created_ids) > 1 else "Đã thêm tài liệu"
+    return jsonify({"success": True, "ids": created_ids, "message": msg})
+
+
+@app.route("/api/documents/<int:doc_id>", methods=["GET"])
+def api_get_document(doc_id):
+    """Lấy chi tiết 1 document."""
+    doc = get_document_by_id(doc_id)
+    if doc:
+        return jsonify({"success": True, "data": doc})
+    return jsonify({"success": False, "error": "Không tìm thấy"}), 404
+
+
+@app.route("/api/documents/<int:doc_id>", methods=["PUT"])
+def api_update_document(doc_id):
+    """Cập nhật document."""
+    title = request.form.get("title", "").strip()
+    category = request.form.get("category", "").strip()
+    content = request.form.get("content", "").strip()
+    tags = request.form.get("tags", "").strip()
+
+    if not title:
+        return jsonify({"success": False, "error": "Thiếu tiêu đề"}), 400
+
+    # Xử lý file mới (nếu có upload file mới - lấy file đầu tiên)
+    file_path = None
+    file_name = None
+    file_type = None
+    files = request.files.getlist("files")
+    if files and files[0].filename:
+        file = files[0]
+        if allowed_doc_file(file.filename):
+            import uuid
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            safe_name = f"{uuid.uuid4().hex}.{ext}"
+            file.save(os.path.join(DOCUMENTS_FOLDER, safe_name))
+            file_path = f"uploads/documents/{safe_name}"
+            file_name = file.filename
+            file_type = ext
+
+    ok = update_document(doc_id, title, category, content, file_path, file_name, file_type, tags)
+    if ok:
+        return jsonify({"success": True, "message": "Đã cập nhật"})
+    return jsonify({"success": False, "error": "Không tìm thấy document"}), 404
+
+
+@app.route("/api/documents/<int:doc_id>", methods=["DELETE"])
+def api_delete_document(doc_id):
+    """Xóa document."""
+    # Xóa file vật lý nếu có
+    doc = get_document_by_id(doc_id)
+    if doc and doc['file_path']:
+        physical_path = os.path.join(BASE_DIR, 'static', doc['file_path'])
+        if os.path.exists(physical_path):
+            try:
+                os.remove(physical_path)
+            except:
+                pass
+
+    ok = delete_document(doc_id)
+    if ok:
+        return jsonify({"success": True, "message": "Đã xóa"})
+    return jsonify({"success": False, "error": "Không tìm thấy"}), 404
+
+
+@app.route("/api/documents/<int:doc_id>/download")
+def api_download_document(doc_id):
+    """Download file đính kèm của document."""
+    doc = get_document_by_id(doc_id)
+    if not doc or not doc['file_path']:
+        return jsonify({"error": "Không có file đính kèm"}), 404
+
+    physical_path = os.path.join(BASE_DIR, 'static', doc['file_path'])
+    if not os.path.exists(physical_path):
+        return jsonify({"error": "File không tồn tại"}), 404
+
+    return send_file(physical_path, as_attachment=True, download_name=doc['file_name'])
+
+
+@app.route("/api/documents/<int:doc_id>/preview")
+def api_preview_document(doc_id):
+    """
+    Preview nội dung file trực tiếp.
+    - PDF: trả về file để embed trong iframe
+    - Ảnh: trả về file để hiển thị <img>
+    - Excel/CSV: đọc và trả về JSON table (headers + rows)
+    - TXT: trả về nội dung text
+    """
+    doc = get_document_by_id(doc_id)
+    if not doc or not doc['file_path']:
+        return jsonify({"error": "Không có file đính kèm"}), 404
+
+    physical_path = os.path.join(BASE_DIR, 'static', doc['file_path'])
+    if not os.path.exists(physical_path):
+        return jsonify({"error": "File không tồn tại"}), 404
+
+    file_type = doc['file_type'].lower()
+
+    # PDF và ảnh: trả file trực tiếp (inline, không download)
+    if file_type == 'pdf':
+        return send_file(physical_path, mimetype='application/pdf')
+    if file_type in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
+        mime = f"image/{'jpeg' if file_type == 'jpg' else file_type}"
+        return send_file(physical_path, mimetype=mime)
+
+    # Excel/CSV: đọc thành table JSON
+    if file_type in ('xlsx', 'xls', 'csv'):
+        try:
+            if file_type == 'csv':
+                df = pd.read_csv(physical_path, dtype=str, keep_default_na=False, nrows=200)
+            else:
+                df = pd.read_excel(physical_path, dtype=str, keep_default_na=False, nrows=200)
+            headers = df.columns.tolist()
+            rows = df.values.tolist()
+            return jsonify({"type": "table", "headers": headers, "rows": rows, "total_rows": len(rows)})
+        except Exception as e:
+            return jsonify({"type": "error", "message": f"Không đọc được file: {str(e)}"})
+
+    # TXT, DOC: đọc text
+    if file_type == 'txt':
+        try:
+            with open(physical_path, 'r', encoding='utf-8') as f:
+                content = f.read(50000)  # Max 50KB
+            return jsonify({"type": "text", "content": content})
+        except:
+            return jsonify({"type": "error", "message": "Không đọc được file text"})
+
+    return jsonify({"type": "unsupported", "message": f"Không hỗ trợ preview file .{file_type}"})
+
+
+@app.route("/api/documents/export", methods=["GET"])
+def api_export_documents():
+    """Export toàn bộ documents ra JSON."""
+    import json
+    data = export_all_documents()
+    export_path = os.path.join(OUTPUT_FOLDER, "documents_backup.json")
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    with open(export_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return send_file(export_path, as_attachment=True, download_name="documents_backup.json")
+
+
+@app.route("/api/documents/import", methods=["POST"])
+def api_import_documents():
+    """Import documents từ file JSON."""
+    import json
+    if "file" not in request.files:
+        return jsonify({"success": False, "error": "Chưa chọn file"}), 400
+
+    file = request.files["file"]
+    if not file.filename.endswith(".json"):
+        return jsonify({"success": False, "error": "Chỉ hỗ trợ file .json"}), 400
+
+    try:
+        content = file.read().decode("utf-8")
+        records = json.loads(content)
+        imported, skipped = import_documents(records)
+        return jsonify({
+            "success": True,
+            "message": f"Đã import {imported} tài liệu, bỏ qua {skipped} trùng"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Lỗi: {str(e)}"}), 400
 
 
 # ============================================================

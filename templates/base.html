@@ -38,6 +38,12 @@
                 </a>
             </li>
 
+            <li class="nav-item">
+                <a href="/documents" class="nav-link {% if request.endpoint == 'documents_page' %}active{% endif %}">
+                    <i class="bi bi-folder2"></i> Tài liệu Team
+                </a>
+            </li>
+
             <li class="sidebar-section-title">Dữ liệu</li>
             <li class="nav-item">
                 <a href="/history" class="nav-link {% if request.endpoint == 'history_page' %}active{% endif %}">

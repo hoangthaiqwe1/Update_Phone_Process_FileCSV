@@ -985,3 +985,223 @@ def import_api_entries(records):
     conn.commit()
     conn.close()
     return imported, skipped
+
+
+# ============================================================
+# QUẢN LÝ DOCUMENT TEAM
+# CRUD: Thêm / Sửa / Xóa / Tìm kiếm tài liệu
+# Hỗ trợ import file CSV, Excel, PDF
+# ============================================================
+
+def init_documents_db():
+    """Tạo bảng documents nếu chưa có."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            category TEXT DEFAULT '',
+            content TEXT DEFAULT '',
+            file_path TEXT DEFAULT '',
+            file_name TEXT DEFAULT '',
+            file_type TEXT DEFAULT '',
+            tags TEXT DEFAULT '',
+            created_by TEXT DEFAULT '',
+            created_at TEXT DEFAULT '',
+            updated_at TEXT DEFAULT ''
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_documents_category ON documents(category)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_documents_tags ON documents(tags)')
+    conn.commit()
+    conn.close()
+
+
+def get_all_documents(category='', search='', page=1, per_page=50):
+    """Lấy danh sách documents với filter và phân trang."""
+    conn = get_db()
+    cursor = conn.cursor()
+    offset = (page - 1) * per_page
+
+    conditions = []
+    params = []
+
+    if category:
+        conditions.append('category = ?')
+        params.append(category)
+    if search:
+        like = f'%{search}%'
+        conditions.append('(title LIKE ? OR content LIKE ? OR tags LIKE ? OR file_name LIKE ?)')
+        params.extend([like, like, like, like])
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    # Count total
+    cursor.execute(f'SELECT COUNT(*) FROM documents {where}', params)
+    total = cursor.fetchone()[0]
+
+    # Get data
+    cursor.execute(f'SELECT * FROM documents {where} ORDER BY id DESC LIMIT ? OFFSET ?', params + [per_page, offset])
+    rows = cursor.fetchall()
+    data = []
+    for row in rows:
+        data.append({
+            'id': row['id'],
+            'title': row['title'],
+            'category': row['category'],
+            'content': row['content'],
+            'file_path': row['file_path'],
+            'file_name': row['file_name'],
+            'file_type': row['file_type'],
+            'tags': row['tags'],
+            'created_by': row['created_by'],
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at']
+        })
+    conn.close()
+    return data, total
+
+
+def get_all_document_categories():
+    """Lấy danh sách category duy nhất."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT DISTINCT category FROM documents WHERE category != "" ORDER BY category')
+    rows = cursor.fetchall()
+    categories = [row['category'] for row in rows]
+    conn.close()
+    return categories
+
+
+def add_document(title, category, content, file_path, file_name, file_type, tags, created_by):
+    """Thêm document mới."""
+    from datetime import datetime
+    now = datetime.now().strftime('%d/%m/%Y %H:%M')
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO documents (title, category, content, file_path, file_name, file_type, tags, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (title, category, content, file_path, file_name, file_type, tags, created_by, now, now))
+    new_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
+
+def get_document_by_id(doc_id):
+    """Lấy 1 document theo ID."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM documents WHERE id = ?', (doc_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {
+            'id': row['id'],
+            'title': row['title'],
+            'category': row['category'],
+            'content': row['content'],
+            'file_path': row['file_path'],
+            'file_name': row['file_name'],
+            'file_type': row['file_type'],
+            'tags': row['tags'],
+            'created_by': row['created_by'],
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at']
+        }
+    return None
+
+
+def update_document(doc_id, title, category, content, file_path, file_name, file_type, tags):
+    """Cập nhật document theo ID."""
+    from datetime import datetime
+    now = datetime.now().strftime('%d/%m/%Y %H:%M')
+    conn = get_db()
+    cursor = conn.cursor()
+    if file_path is not None:
+        cursor.execute('''
+            UPDATE documents
+            SET title = ?, category = ?, content = ?, file_path = ?, file_name = ?, file_type = ?, tags = ?, updated_at = ?
+            WHERE id = ?
+        ''', (title, category, content, file_path, file_name, file_type, tags, now, doc_id))
+    else:
+        cursor.execute('''
+            UPDATE documents
+            SET title = ?, category = ?, content = ?, tags = ?, updated_at = ?
+            WHERE id = ?
+        ''', (title, category, content, tags, now, doc_id))
+    conn.commit()
+    affected = cursor.rowcount
+    conn.close()
+    return affected > 0
+
+
+def delete_document(doc_id):
+    """Xóa document theo ID."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
+    conn.commit()
+    affected = cursor.rowcount
+    conn.close()
+    return affected > 0
+
+
+def export_all_documents():
+    """Export toàn bộ documents (cho backup)."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM documents ORDER BY category, id')
+    rows = cursor.fetchall()
+    data = []
+    for row in rows:
+        data.append({
+            'id': row['id'],
+            'title': row['title'],
+            'category': row['category'],
+            'content': row['content'],
+            'file_path': row['file_path'],
+            'file_name': row['file_name'],
+            'file_type': row['file_type'],
+            'tags': row['tags'],
+            'created_by': row['created_by'],
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at']
+        })
+    conn.close()
+    return data
+
+
+def import_documents(records):
+    """
+    Import documents từ file JSON backup.
+    Bỏ qua nếu title đã tồn tại.
+    Trả về: (imported, skipped)
+    """
+    from datetime import datetime
+    now = datetime.now().strftime('%d/%m/%Y %H:%M')
+    conn = get_db()
+    cursor = conn.cursor()
+    imported = 0
+    skipped = 0
+    for r in records:
+        title = r.get('title', '').strip()
+        if not title:
+            skipped += 1
+            continue
+        cursor.execute('SELECT COUNT(*) FROM documents WHERE title = ?', (title,))
+        if cursor.fetchone()[0] > 0:
+            skipped += 1
+            continue
+        cursor.execute('''
+            INSERT INTO documents (title, category, content, file_path, file_name, file_type, tags, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (title, r.get('category', ''), r.get('content', ''), r.get('file_path', ''),
+              r.get('file_name', ''), r.get('file_type', ''), r.get('tags', ''),
+              r.get('created_by', ''), r.get('created_at', now), now))
+        imported += 1
+    conn.commit()
+    conn.close()
+    return imported, skipped
